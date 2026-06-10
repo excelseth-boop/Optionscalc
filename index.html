@@ -146,6 +146,18 @@ label.lbl{display:block;font-size:11px;color:var(--text2);text-transform:upperca
 .es{font-size:12px;}
 .toast{position:fixed;bottom:calc(72px + var(--sb));left:50%;transform:translateX(-50%) translateY(16px);background:#1E3A5F;border:1px solid var(--blue);border-radius:10px;padding:10px 18px;font-size:13px;color:var(--text);z-index:9999;opacity:0;transition:all .25s;white-space:nowrap;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+/* AUTOCOMPLETE */
+.ac-wrap{position:relative;flex:1;min-width:0;}
+.ac-wrap .inp-ticker{width:100%;}
+.ac-drop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--card);border:1px solid var(--blue);border-radius:10px;z-index:500;max-height:220px;overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 8px 24px rgba(0,0,0,.5);display:none;}
+.ac-drop.show{display:block;}
+.ac-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(45,63,94,.5);cursor:pointer;touch-action:manipulation;}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:active,.ac-item.hi{background:rgba(59,130,246,.15);}
+.ac-sym{font-size:14px;font-weight:700;font-family:var(--mono);color:var(--blue);min-width:90px;}
+.ac-name{font-size:12px;color:var(--text2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ac-lot{font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap;}
+.ac-none{padding:12px;text-align:center;font-size:13px;color:var(--text3);}
 </style>
 </head>
 <body>
@@ -167,7 +179,10 @@ label.lbl{display:block;font-size:11px;color:var(--text2);text-transform:upperca
 
     <div class="ubar">
       <div class="utop">
-        <input class="inp inp-ticker" type="text" id="tickerInput" placeholder="ONGC, NIFTY…" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
+        <div class="ac-wrap">
+          <input class="inp inp-ticker" type="text" id="tickerInput" placeholder="Search symbol or name…" maxlength="25" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+          <div class="ac-drop" id="acDrop"></div>
+        </div>
         <input class="inp inp-spot inp-mono" type="number" id="spotInput" placeholder="Spot ₹" step="0.05" min="0">
         <button class="btn-fetch" id="fetchBtn">Fetch</button>
       </div>
@@ -755,6 +770,154 @@ function buildLotTable() {
 }
 
 
+// ─── Autocomplete ─────────────────────────────────────────────────────────────
+var acHiIdx = -1;
+
+function acSearch(q) {
+  if (!q || q.length < 1) return [];
+  var u = q.toUpperCase().trim();
+  var exact = [], startSym = [], startName = [], contains = [];
+  RAW_LOTS.forEach(function(r) {
+    var sym  = r[0].toUpperCase();
+    var name = r[1].toUpperCase();
+    if (sym === u) { exact.push(r); return; }
+    if (sym.indexOf(u) === 0) { startSym.push(r); return; }
+    if (name.indexOf(u) === 0) { startName.push(r); return; }
+    if (sym.indexOf(u) >= 0 || name.indexOf(u) >= 0) { contains.push(r); }
+  });
+  return exact.concat(startSym).concat(startName).concat(contains).slice(0, 8);
+}
+
+function acHighlight(q, text) {
+  // Bold the matching portion
+  var u = q.toUpperCase();
+  var t = text.toUpperCase();
+  var idx = t.indexOf(u);
+  if (idx < 0) return text;
+  return text.slice(0,idx) + '<b style="color:var(--text);">' + text.slice(idx,idx+q.length) + '</b>' + text.slice(idx+q.length);
+}
+
+function acShow(results, q) {
+  var drop = document.getElementById('acDrop');
+  acHiIdx = -1;
+  if (!results.length) {
+    drop.innerHTML = '<div class="ac-none">No matches for "'+q+'"</div>';
+    drop.classList.add('show');
+    return;
+  }
+  var monthIdx = parseInt(document.getElementById('lotMonthSel').value,10)||0;
+  var html = '';
+  results.forEach(function(r, i) {
+    var lot = r[2+monthIdx] || r[2] || '—';
+    html += '<div class="ac-item" data-sym="'+r[0]+'" data-idx="'+i+'">'
+      + '<span class="ac-sym">'+acHighlight(q,r[0])+'</span>'
+      + '<span class="ac-name">'+acHighlight(q,r[1])+'</span>'
+      + '<span class="ac-lot">'+lot+'</span>'
+      + '</div>';
+  });
+  drop.innerHTML = html;
+  drop.classList.add('show');
+
+  // Wire touch/click on each item — use touchend for iOS responsiveness
+  drop.querySelectorAll('.ac-item').forEach(function(el) {
+    // touchend fires before blur, so we can select before input loses focus
+    el.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      acSelect(el.getAttribute('data-sym'));
+    });
+    el.addEventListener('mousedown', function(e) {
+      e.preventDefault(); // prevent blur
+      acSelect(el.getAttribute('data-sym'));
+    });
+  });
+}
+
+function acHide() {
+  var drop = document.getElementById('acDrop');
+  drop.classList.remove('show');
+  acHiIdx = -1;
+}
+
+function acSelect(sym) {
+  var rec = LOT_DB[sym];
+  if (!rec) return;
+  // Fill ticker input
+  var inp = document.getElementById('tickerInput');
+  inp.value = sym;
+  // Sync symbol dropdown
+  var sel = document.getElementById('symbolSel');
+  if (sel.querySelector('option[value="'+sym+'"]')) sel.value = sym;
+  // Update lot
+  var monthIdx = parseInt(document.getElementById('lotMonthSel').value,10)||0;
+  currentLot = rec.lots[monthIdx] || 1;
+  updateLotDisplay();
+  // Hide dropdown
+  acHide();
+  // Auto-fetch price
+  fetchPrice();
+}
+
+function initAutocomplete() {
+  var inp  = document.getElementById('tickerInput');
+  var drop = document.getElementById('acDrop');
+
+  inp.addEventListener('input', function() {
+    var q = inp.value.trim();
+    if (!q) { acHide(); return; }
+    var results = acSearch(q);
+    // Auto-select if single exact match
+    if (results.length === 1 && results[0][0].toUpperCase() === q.toUpperCase()) {
+      acHide();
+      // Just sync dropdown + lot, don't fetch yet (user may still be typing)
+      var sym = results[0][0];
+      var sel = document.getElementById('symbolSel');
+      if (sel.querySelector('option[value="'+sym+'"]')) sel.value = sym;
+      var monthIdx = parseInt(document.getElementById('lotMonthSel').value,10)||0;
+      currentLot = LOT_DB[sym] ? (LOT_DB[sym].lots[monthIdx]||1) : 1;
+      updateLotDisplay();
+      return;
+    }
+    acShow(results, q);
+  });
+
+  inp.addEventListener('keydown', function(e) {
+    var items = drop.querySelectorAll('.ac-item');
+    if (!drop.classList.contains('show') || !items.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      acHiIdx = Math.min(acHiIdx+1, items.length-1);
+      items.forEach(function(el,i){ el.classList.toggle('hi', i===acHiIdx); });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      acHiIdx = Math.max(acHiIdx-1, 0);
+      items.forEach(function(el,i){ el.classList.toggle('hi', i===acHiIdx); });
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (acHiIdx >= 0 && items[acHiIdx]) {
+        e.preventDefault();
+        acSelect(items[acHiIdx].getAttribute('data-sym'));
+      } else if (items.length > 0) {
+        e.preventDefault();
+        acSelect(items[0].getAttribute('data-sym'));
+      }
+    } else if (e.key === 'Escape') {
+      acHide();
+    }
+  });
+
+  inp.addEventListener('blur', function() {
+    // Small delay so touchend/mousedown on item fires first
+    setTimeout(acHide, 200);
+  });
+
+  inp.addEventListener('focus', function() {
+    var q = inp.value.trim();
+    if (q.length >= 1) {
+      var results = acSearch(q);
+      if (results.length) acShow(results, q);
+    }
+  });
+}
+
 // ─── Event wiring (all addEventListener, no inline onclick) ───────────────────
 function init() {
   // Nav
@@ -786,6 +949,9 @@ function init() {
 
   // Settings
   document.getElementById('clearSavedBtn').addEventListener('click', clearAllSaved);
+
+  // Autocomplete
+  initAutocomplete();
 
   // Build UI pieces
   buildSymbolDropdown();
@@ -1441,12 +1607,13 @@ function loadPreset(name) {
 // ─── Fetch Price ──────────────────────────────────────────────────────────────
 function fetchPrice() {
   var ticker = (document.getElementById('tickerInput').value || document.getElementById('symbolSel').value).trim().toUpperCase();
-  if (!ticker || ticker === 'CUSTOM') { showToast('Enter a ticker symbol'); return; }
+  if (!ticker) { showToast('Enter a ticker symbol'); return; }
   showToast('Fetching\u2026');
-  // Try to auto-match lot size from ticker
-  if (LOT_MAP[ticker]) {
-    currentLot = LOT_MAP[ticker];
-    document.getElementById('lotInfo').textContent = 'Lot size: ' + currentLot.toLocaleString('en-IN') + ' shares/units';
+  // Auto-match lot size and sync dropdown from LOT_DB
+  if (LOT_DB[ticker]) {
+    var monthIdx = parseInt(document.getElementById('lotMonthSel').value,10)||0;
+    currentLot = LOT_DB[ticker].lots[monthIdx] || 1;
+    updateLotDisplay();
     var sel = document.getElementById('symbolSel');
     if (sel.querySelector('option[value="'+ticker+'"]')) sel.value = ticker;
   }
