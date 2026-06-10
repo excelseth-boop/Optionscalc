@@ -987,10 +987,17 @@ function getLot() {
 
 // ─── Add / Remove legs ────────────────────────────────────────────────────────
 function addLeg(type) {
-  var spot = parseFloat(document.getElementById('spotInput').value) || 260;
   lid++;
-  legs.push({ id:lid, type:type, strike:Math.round(spot/50)*50, premium:5, qty:1, entryPrice:spot });
+  // Null values so inputs render blank — user types directly without clearing defaults
+  legs.push({ id:lid, type:type, strike:null, premium:null, qty:null, entryPrice:null, isNew:true });
   renderLegs();
+  // Auto-focus first field of the new leg
+  setTimeout(function() {
+    var cfg = CFG[type];
+    var firstId = cfg.hasK ? 'k_'+lid : 'e_'+lid;
+    var el = document.getElementById(firstId);
+    if (el) { el.focus(); }
+  }, 60);
 }
 
 function removeLeg(id) {
@@ -1005,14 +1012,15 @@ function collectLegs() {
     if (cfg.hasK) {
       var ke = document.getElementById('k_'+leg.id);
       var pe = document.getElementById('p_'+leg.id);
-      if (ke) leg.strike  = parseFloat(ke.value) || leg.strike;
-      if (pe) leg.premium = parseFloat(pe.value) || leg.premium;
+      if (ke && ke.value !== '') leg.strike  = parseFloat(ke.value);
+      if (pe && pe.value !== '') leg.premium = parseFloat(pe.value);
     } else {
       var ee = document.getElementById('e_'+leg.id);
-      if (ee) leg.entryPrice = parseFloat(ee.value) || leg.entryPrice;
+      if (ee && ee.value !== '') leg.entryPrice = parseFloat(ee.value);
     }
     var qe = document.getElementById('q_'+leg.id);
-    if (qe) leg.qty = parseFloat(qe.value) || leg.qty;
+    if (qe && qe.value !== '') leg.qty = parseFloat(qe.value);
+    leg.isNew = false;
   });
 }
 
@@ -1025,15 +1033,24 @@ function renderLegs() {
   var html = '';
   legs.forEach(function(leg, idx) {
     var cfg = CFG[leg.type];
+    // Use empty string for null values so inputs render blank
+    var vK = leg.strike   !== null ? leg.strike   : '';
+    var vP = leg.premium  !== null ? leg.premium  : '';
+    var vQ = leg.qty      !== null ? leg.qty      : '';
+    var vE = leg.entryPrice !== null ? leg.entryPrice : '';
+    var pK = leg.strike   !== null ? '' : 'placeholder="Strike"';
+    var pP = leg.premium  !== null ? '' : 'placeholder="Premium"';
+    var pQ = leg.qty      !== null ? '' : 'placeholder="Lots"';
+    var pE = leg.entryPrice !== null ? '' : 'placeholder="Entry ₹"';
     var fields = cfg.hasK
       ? '<div class="fgrid3">'
-          + '<div><label class="lbl">Strike ₹</label><input class="leg-inp" type="number" id="k_'+leg.id+'" value="'+leg.strike+'" step="5" min="0"></div>'
-          + '<div><label class="lbl">Premium ₹</label><input class="leg-inp" type="number" id="p_'+leg.id+'" value="'+leg.premium+'" step="0.05" min="0"></div>'
-          + '<div><label class="lbl">Lots</label><input class="leg-inp" type="number" id="q_'+leg.id+'" value="'+leg.qty+'" step="1" min="1"></div>'
+          + '<div><label class="lbl">Strike ₹</label><input class="leg-inp" type="number" id="k_'+leg.id+'" value="'+vK+'" '+pK+' step="5" min="0"></div>'
+          + '<div><label class="lbl">Premium ₹</label><input class="leg-inp" type="number" id="p_'+leg.id+'" value="'+vP+'" '+pP+' step="0.05" min="0"></div>'
+          + '<div><label class="lbl">Lots</label><input class="leg-inp" type="number" id="q_'+leg.id+'" value="'+vQ+'" '+pQ+' step="1" min="1"></div>'
           + '</div>'
       : '<div class="fgrid2">'
-          + '<div><label class="lbl">Entry Price ₹</label><input class="leg-inp" type="number" id="e_'+leg.id+'" value="'+leg.entryPrice+'" step="0.05" min="0"></div>'
-          + '<div><label class="lbl">Lots</label><input class="leg-inp" type="number" id="q_'+leg.id+'" value="'+leg.qty+'" step="1" min="1"></div>'
+          + '<div><label class="lbl">Entry Price ₹</label><input class="leg-inp" type="number" id="e_'+leg.id+'" value="'+vE+'" '+pE+' step="0.05" min="0"></div>'
+          + '<div><label class="lbl">Lots</label><input class="leg-inp" type="number" id="q_'+leg.id+'" value="'+vQ+'" '+pQ+' step="1" min="1"></div>'
           + '</div>';
     html += '<div class="leg-card">'
       + '<div class="leg-hdr">'
@@ -1065,17 +1082,21 @@ function clearAll() {
 
 // ─── P&L Math ─────────────────────────────────────────────────────────────────
 function legPnL(leg, S) {
-  var cfg = CFG[leg.type];
-  var mult = leg.qty * getLot();
+  var cfg  = CFG[leg.type];
+  var qty  = leg.qty      || 1;
+  var K    = leg.strike   || 0;
+  var P    = leg.premium  || 0;
+  var E    = leg.entryPrice || S;
+  var mult = qty * getLot();
   var v;
   if (cfg.otype === 'call') {
-    var intr = Math.max(S - leg.strike, 0);
-    v = cfg.sign > 0 ? (intr - leg.premium) : (leg.premium - intr);
+    var intr = Math.max(S - K, 0);
+    v = cfg.sign > 0 ? (intr - P) : (P - intr);
   } else if (cfg.otype === 'put') {
-    var intr = Math.max(leg.strike - S, 0);
-    v = cfg.sign > 0 ? (intr - leg.premium) : (leg.premium - intr);
+    var intr = Math.max(K - S, 0);
+    v = cfg.sign > 0 ? (intr - P) : (P - intr);
   } else {
-    v = cfg.sign * (S - leg.entryPrice);
+    v = cfg.sign * (S - E);
   }
   return v * mult;
 }
@@ -1126,6 +1147,26 @@ function calculate() {
   var spot = parseFloat(document.getElementById('spotInput').value);
   if (!spot || spot <= 0) { showToast('Enter a valid spot price'); return; }
   collectLegs();
+  // Validate all legs have required values
+  var invalid = false;
+  legs.forEach(function(leg, idx) {
+    var cfg = CFG[leg.type];
+    if (cfg.hasK) {
+      if (leg.strike === null || leg.strike === undefined || isNaN(leg.strike)) {
+        showToast('Leg '+(idx+1)+': enter a strike price'); invalid = true;
+      } else if (leg.premium === null || leg.premium === undefined || isNaN(leg.premium)) {
+        showToast('Leg '+(idx+1)+': enter a premium'); invalid = true;
+      }
+    } else {
+      if (leg.entryPrice === null || leg.entryPrice === undefined || isNaN(leg.entryPrice)) {
+        showToast('Leg '+(idx+1)+': enter an entry price'); invalid = true;
+      }
+    }
+    if (leg.qty === null || leg.qty === undefined || isNaN(leg.qty) || leg.qty <= 0) {
+      showToast('Leg '+(idx+1)+': enter number of lots'); invalid = true;
+    }
+  });
+  if (invalid) return;
   runCalc(legs, spot, 'resGrid', 'payoffChart', 'pnlTbl', 'mgnCard');
   document.getElementById('resultsSection').style.display = 'block';
   setTimeout(function(){
