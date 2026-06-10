@@ -199,16 +199,33 @@ label.lbl{display:block;font-size:11px;color:var(--text2);text-transform:upperca
         <input class="inp inp-spot inp-mono" type="number" id="spotInput" placeholder="Spot ₹" step="0.05" min="0">
         <button class="btn-fetch" id="fetchBtn">Fetch</button>
       </div>
-      <div class="ugrid2">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <div>
-          <label class="lbl">Symbol / Index</label>
+          <label class="lbl">Symbol</label>
           <select class="inp-sel" id="symbolSel"></select>
-          <div class="lot-info" id="lotInfo">Lot size: —</div>
         </div>
-        <div><label class="lbl">DTE (days)</label><input class="inp inp-mono" type="number" id="dteInput" value="30" min="1" max="365"></div>
+        <div>
+          <label class="lbl">Expiry</label>
+          <select class="inp-sel" id="expirySel"></select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <label class="lbl">Lot Month</label>
+          <select class="inp-sel" id="lotMonthSel">
+            <option value="0">Jun 2026</option>
+            <option value="1">Jul 2026</option>
+            <option value="2">Aug 2026</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl">Lot Size</label>
+          <div class="lot-info" id="lotInfo" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;font-family:var(--mono);color:var(--green);">—</div>
+        </div>
       </div>
     </div>
 
+    <input type="hidden" id="dteInput" value="30">
     <input class="sname" type="text" id="stratName" placeholder="Strategy name (e.g. Iron Condor)" autocomplete="off">
 
     <div class="sec-title">Add Leg</div>
@@ -317,113 +334,330 @@ label.lbl{display:block;font-size:11px;color:var(--text2);text-transform:upperca
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
 <script>
-// ─── NSE LOT SIZES (F&O, current as of 2024-25 revision) ──────────────────────
-// Format: { symbol, name, lot, category }
-var NSE_LOTS = [
-  // INDICES
-  {s:'NIFTY',      n:'Nifty 50',           lot:25,    cat:'Index'},
-  {s:'BANKNIFTY',  n:'Bank Nifty',         lot:15,    cat:'Index'},
-  {s:'FINNIFTY',   n:'Fin Nifty',          lot:40,    cat:'Index'},
-  {s:'MIDCPNIFTY', n:'Midcap Nifty',       lot:75,    cat:'Index'},
-  {s:'SENSEX',     n:'Sensex',             lot:10,    cat:'Index'},
-  {s:'BANKEX',     n:'Bankex',             lot:15,    cat:'Index'},
-  // LARGE CAP STOCKS
-  {s:'RELIANCE',   n:'Reliance Industries',lot:250,   cat:'Large Cap'},
-  {s:'TCS',        n:'TCS',                lot:150,   cat:'Large Cap'},
-  {s:'HDFCBANK',   n:'HDFC Bank',          lot:550,   cat:'Large Cap'},
-  {s:'ICICIBANK',  n:'ICICI Bank',         lot:700,   cat:'Large Cap'},
-  {s:'INFY',       n:'Infosys',            lot:400,   cat:'Large Cap'},
-  {s:'HINDUNILVR', n:'HUL',               lot:300,   cat:'Large Cap'},
-  {s:'ITC',        n:'ITC',                lot:3200,  cat:'Large Cap'},
-  {s:'SBIN',       n:'SBI',                lot:1500,  cat:'Large Cap'},
-  {s:'BHARTIARTL', n:'Bharti Airtel',      lot:500,   cat:'Large Cap'},
-  {s:'KOTAKBANK',  n:'Kotak Mahindra',     lot:400,   cat:'Large Cap'},
-  {s:'LT',         n:'L&T',               lot:150,   cat:'Large Cap'},
-  {s:'AXISBANK',   n:'Axis Bank',          lot:1200,  cat:'Large Cap'},
-  {s:'ASIANPAINT', n:'Asian Paints',       lot:200,   cat:'Large Cap'},
-  {s:'MARUTI',     n:'Maruti Suzuki',      lot:100,   cat:'Large Cap'},
-  {s:'SUNPHARMA',  n:'Sun Pharma',         lot:700,   cat:'Large Cap'},
-  {s:'TITAN',      n:'Titan',              lot:375,   cat:'Large Cap'},
-  {s:'WIPRO',      n:'Wipro',              lot:1500,  cat:'Large Cap'},
-  {s:'ULTRACEMCO', n:'UltraTech Cement',   lot:100,   cat:'Large Cap'},
-  {s:'NESTLEIND',  n:'Nestle India',       lot:40,    cat:'Large Cap'},
-  {s:'POWERGRID',  n:'Power Grid',         lot:2700,  cat:'Large Cap'},
-  {s:'NTPC',       n:'NTPC',               lot:3000,  cat:'Large Cap'},
-  {s:'BAJFINANCE', n:'Bajaj Finance',      lot:125,   cat:'Large Cap'},
-  {s:'BAJAJFINSV', n:'Bajaj Finserv',      lot:1000,  cat:'Large Cap'},
-  {s:'TECHM',      n:'Tech Mahindra',      lot:600,   cat:'Large Cap'},
-  {s:'ONGC',       n:'ONGC',               lot:1925,  cat:'Large Cap'},
-  {s:'TATAMOTORS', n:'Tata Motors',        lot:1425,  cat:'Large Cap'},
-  {s:'TATASTEEL',  n:'Tata Steel',         lot:5500,  cat:'Large Cap'},
-  {s:'HCLTECH',    n:'HCL Technologies',   lot:350,   cat:'Large Cap'},
-  {s:'ADANIENT',   n:'Adani Enterprises',  lot:250,   cat:'Large Cap'},
-  {s:'ADANIPORTS', n:'Adani Ports',        lot:625,   cat:'Large Cap'},
-  {s:'JSWSTEEL',   n:'JSW Steel',          lot:1350,  cat:'Large Cap'},
-  {s:'COALINDIA',  n:'Coal India',         lot:4200,  cat:'Large Cap'},
-  {s:'HINDALCO',   n:'Hindalco',           lot:2150,  cat:'Large Cap'},
-  {s:'DRREDDY',    n:'Dr Reddy\'s',        lot:125,   cat:'Large Cap'},
-  {s:'CIPLA',      n:'Cipla',              lot:650,   cat:'Large Cap'},
-  {s:'DIVISLAB',   n:'Divi\'s Labs',       lot:200,   cat:'Large Cap'},
-  {s:'APOLLOHOSP', n:'Apollo Hospitals',   lot:125,   cat:'Large Cap'},
-  {s:'EICHERMOT',  n:'Eicher Motors',      lot:175,   cat:'Large Cap'},
-  {s:'HEROMOTOCO', n:'Hero MotoCorp',      lot:150,   cat:'Large Cap'},
-  {s:'BPCL',       n:'BPCL',               lot:1800,  cat:'Large Cap'},
-  {s:'IOC',        n:'Indian Oil',         lot:9750,  cat:'Large Cap'},
-  {s:'GAIL',       n:'GAIL',               lot:6075,  cat:'Large Cap'},
-  {s:'M&M',        n:'Mahindra & Mahindra',lot:700,   cat:'Large Cap'},
-  {s:'TATACONSUM', n:'Tata Consumer',      lot:1100,  cat:'Large Cap'},
-  {s:'SBILIFE',    n:'SBI Life',           lot:750,   cat:'Large Cap'},
-  {s:'HDFCLIFE',   n:'HDFC Life',          lot:1100,  cat:'Large Cap'},
-  {s:'ICICIPRULI', n:'ICICI Prudential',   lot:2000,  cat:'Large Cap'},
-  {s:'VEDL',       n:'Vedanta',            lot:4000,  cat:'Large Cap'},
-  {s:'INDUSINDBK', n:'IndusInd Bank',      lot:500,   cat:'Large Cap'},
-  {s:'BANKBARODA', n:'Bank of Baroda',     lot:5850,  cat:'Large Cap'},
-  {s:'PNB',        n:'Punjab National Bank',lot:16000,cat:'Large Cap'},
-  {s:'CANBK',      n:'Canara Bank',        lot:5000,  cat:'Large Cap'},
-  {s:'UNIONBANK',  n:'Union Bank',         lot:10000, cat:'Large Cap'},
-  {s:'SAIL',       n:'SAIL',               lot:12500, cat:'Large Cap'},
-  {s:'BHEL',       n:'BHEL',               lot:10500, cat:'Large Cap'},
-  {s:'HAL',        n:'HAL',                lot:150,   cat:'Large Cap'},
-  {s:'BEL',        n:'BEL',                lot:3700,  cat:'Large Cap'},
-  {s:'DLF',        n:'DLF',                lot:1650,  cat:'Large Cap'},
-  {s:'GODREJCP',   n:'Godrej Consumer',    lot:500,   cat:'Large Cap'},
-  {s:'PIDILITIND', n:'Pidilite',           lot:250,   cat:'Large Cap'},
-  {s:'SIEMENS',    n:'Siemens',            lot:125,   cat:'Large Cap'},
-  {s:'ABB',        n:'ABB India',          lot:250,   cat:'Large Cap'},
-  {s:'INDIGO',     n:'IndiGo',             lot:300,   cat:'Large Cap'},
-  {s:'ZOMATO',     n:'Zomato',             lot:4500,  cat:'Large Cap'},
-  {s:'PAYTM',      n:'Paytm',              lot:6250,  cat:'Large Cap'},
-  {s:'NYKAA',      n:'Nykaa',              lot:3000,  cat:'Large Cap'},
-  {s:'DELHIVERY',  n:'Delhivery',          lot:3750,  cat:'Large Cap'},
-  {s:'POLICYBZR',  n:'PB Fintech',         lot:1125,  cat:'Large Cap'},
-  {s:'IRCTC',      n:'IRCTC',              lot:875,   cat:'Large Cap'},
-  {s:'RECLTD',     n:'REC',                lot:3000,  cat:'Large Cap'},
-  {s:'PFC',        n:'PFC',                lot:3600,  cat:'Large Cap'},
-  {s:'NHPC',       n:'NHPC',               lot:12000, cat:'Large Cap'},
-  {s:'SJVN',       n:'SJVN',               lot:15000, cat:'Large Cap'},
-  {s:'IRFC',       n:'IRFC',               lot:10000, cat:'Large Cap'},
-  {s:'TATAPOWER',  n:'Tata Power',         lot:3375,  cat:'Large Cap'},
-  {s:'TORNTPHARM', n:'Torrent Pharma',     lot:250,   cat:'Large Cap'},
-  {s:'AUROPHARMA', n:'Aurobindo Pharma',   lot:650,   cat:'Large Cap'},
-  {s:'LUPIN',      n:'Lupin',              lot:425,   cat:'Large Cap'},
-  {s:'BIOCON',     n:'Biocon',             lot:4375,  cat:'Large Cap'},
-  {s:'MUTHOOTFIN', n:'Muthoot Finance',    lot:500,   cat:'Large Cap'},
-  {s:'CHOLAFIN',   n:'Chola Finance',      lot:500,   cat:'Large Cap'},
-  {s:'SHRIRAMFIN', n:'Shriram Finance',    lot:500,   cat:'Large Cap'},
-  {s:'LICHSGFIN',  n:'LIC Housing',        lot:2000,  cat:'Large Cap'},
-  {s:'BALKRISIND', n:'Balkrishna Ind',     lot:250,   cat:'Large Cap'},
-  {s:'MRF',        n:'MRF',                lot:10,    cat:'Large Cap'},
-  {s:'APOLLOTYRE', n:'Apollo Tyres',       lot:3500,  cat:'Large Cap'},
-  {s:'ESCORTS',    n:'Escorts Kubota',     lot:200,   cat:'Large Cap'},
-  {s:'TVSMOTOR',   n:'TVS Motor',          lot:350,   cat:'Large Cap'},
-  {s:'BAJAJ-AUTO', n:'Bajaj Auto',         lot:125,   cat:'Large Cap'},
-  // Custom
-  {s:'CUSTOM',     n:'Custom Symbol',      lot:1,     cat:'Other'}
+// ─── NSE F&O LOT SIZES (source: Dhan, June 2026 actual data) ─────────────────
+// [symbol, name, lotJun2026, lotJul2026, lotAug2026]
+var RAW_LOTS = [
+  ['NIFTY','Nifty 50',65,65,65],
+  ['BANKNIFTY','Bank Nifty',30,30,30],
+  ['FINNIFTY','Fin Nifty',60,60,60],
+  ['MIDCPNIFTY','Nifty Midcap Select',120,120,120],
+  ['NIFTYNXT50','Nifty Next 50',25,25,25],
+  ['360ONE','360 One WAM',500,500,500],
+  ['ABB','ABB India',125,125,125],
+  ['ABCAPITAL','Aditya Birla Capital',3100,3100,3100],
+  ['ADANIENSOL','Adani Energy Solutions',675,675,675],
+  ['ADANIENT','Adani Enterprises',309,309,309],
+  ['ADANIGREEN','Adani Green Energy',600,600,600],
+  ['ADANIPORTS','Adani Ports & SEZ',475,475,475],
+  ['ADANIPOWER','Adani Power',3550,3550,3550],
+  ['ALKEM','Alkem Laboratories',125,125,125],
+  ['AMBER','Amber Enterprises',100,100,100],
+  ['AMBUJACEM','Ambuja Cements',1050,1200,1200],
+  ['ANGELONE','Angel One',2500,2500,2500],
+  ['APLAPOLLO','APL Apollo Tubes',350,350,350],
+  ['APOLLOHOSP','Apollo Hospitals',125,125,125],
+  ['ASHOKLEY','Ashok Leyland',5000,5000,5000],
+  ['ASIANPAINT','Asian Paints',250,250,250],
+  ['ASTRAL','Astral',425,425,425],
+  ['AUBANK','AU Small Finance Bank',1000,1000,1000],
+  ['AUROPHARMA','Aurobindo Pharma',550,550,550],
+  ['AXISBANK','Axis Bank',625,625,625],
+  ['BAJAJ-AUTO','Bajaj Auto',75,75,75],
+  ['BAJAJFINSV','Bajaj Finserv',250,300,300],
+  ['BAJAJHLDNG','Bajaj Holdings',50,75,75],
+  ['BAJFINANCE','Bajaj Finance',750,750,750],
+  ['BANDHANBNK','Bandhan Bank',3600,3600,3600],
+  ['BANKBARODA','Bank of Baroda',2925,2925,2925],
+  ['BANKINDIA','Bank of India',5200,5200,5200],
+  ['BDL','Bharat Dynamics',350,425,425],
+  ['BEL','Bharat Electronics',1425,1425,1425],
+  ['BHARATFORG','Bharat Forge',500,500,500],
+  ['BHARTIARTL','Bharti Airtel',475,475,475],
+  ['BHEL','BHEL',2625,2625,2625],
+  ['BIOCON','Biocon',2500,2500,2500],
+  ['BLUESTARCO','Blue Star',325,325,325],
+  ['BOSCHLTD','Bosch',25,25,25],
+  ['BPCL','BPCL',1975,1975,1975],
+  ['BRITANNIA','Britannia Industries',125,125,125],
+  ['BSE','BSE Ltd',375,200,200],
+  ['CAMS','CAMS',750,825,825],
+  ['CANBK','Canara Bank',6750,6750,6750],
+  ['CDSL','CDSL',475,475,475],
+  ['CGPOWER','CG Power',850,850,850],
+  ['CHOLAFIN','Cholamandalam Finance',625,625,625],
+  ['CIPLA','Cipla',375,425,425],
+  ['COALINDIA','Coal India',1350,1350,1350],
+  ['COCHINSHIP','Cochin Shipyard',400,400,400],
+  ['COFORGE','Coforge',375,475,475],
+  ['COLPAL','Colgate Palmolive',225,275,275],
+  ['CONCOR','Container Corp',1250,1250,1250],
+  ['CROMPTON','Crompton Greaves',1800,2150,2150],
+  ['CUMMINSIND','Cummins India',200,200,200],
+  ['DABUR','Dabur India',1250,1250,1250],
+  ['DALBHARAT','Dalmia Bharat',325,325,325],
+  ['DELHIVERY','Delhivery',2075,2075,2075],
+  ['DIVISLAB','Divis Laboratories',100,100,100],
+  ['DIXON','Dixon Technologies',50,50,50],
+  ['DLF','DLF',825,950,950],
+  ['DMART','Avenue Supermarts (DMart)',150,150,150],
+  ['DRREDDY','Dr Reddys Laboratories',625,625,625],
+  ['EICHERMOT','Eicher Motors',100,100,100],
+  ['ETERNAL','Eternal (Zomato)',2425,2425,2425],
+  ['EXIDEIND','Exide Industries',1800,1800,0],
+  ['FEDERALBNK','Federal Bank',2500,2500,2500],
+  ['FORCEMOT','Force Motors',25,25,25],
+  ['FORTIS','Fortis Healthcare',775,775,775],
+  ['GAIL','GAIL',3150,3550,3550],
+  ['GLENMARK','Glenmark Pharmaceuticals',375,375,375],
+  ['GMRAIRPORT','GMR Airports',6975,6975,6975],
+  ['GODFRYPHLP','Godfrey Phillips',275,275,275],
+  ['GODREJCP','Godrej Consumer Products',500,500,500],
+  ['GODREJPROP','Godrej Properties',275,325,325],
+  ['GRASIM','Grasim Industries',250,250,250],
+  ['GVTD','GE Vernova T&D',125,125,125],
+  ['HAL','HAL',150,150,150],
+  ['HAVELLS','Havells India',500,500,500],
+  ['HCLTECH','HCL Technologies',350,400,400],
+  ['HDFCAMC','HDFC AMC',300,300,300],
+  ['HDFCBANK','HDFC Bank',550,650,650],
+  ['HDFCLIFE','HDFC Life Insurance',1100,1100,1100],
+  ['HEROMOTOCO','Hero MotoCorp',150,150,150],
+  ['HINDALCO','Hindalco Industries',700,700,700],
+  ['HINDPETRO','Hindustan Petroleum',2025,2025,2025],
+  ['HINDUNILVR','Hindustan Unilever',300,300,300],
+  ['HINDZINC','Hindustan Zinc',1225,1225,1225],
+  ['HYUNDAI','Hyundai Motor India',275,275,275],
+  ['ICICIBANK','ICICI Bank',700,700,700],
+  ['ICICIGI','ICICI Lombard',325,325,325],
+  ['ICICIPRULI','ICICI Prudential Life',925,925,925],
+  ['IDEA','Vodafone Idea',71475,71475,71475],
+  ['IDFCFIRSTB','IDFC First Bank',9275,9275,9275],
+  ['IEX','Indian Energy Exchange',3750,4350,4350],
+  ['INDHOTEL','Indian Hotels (Taj)',1000,1000,1000],
+  ['INDIANB','Indian Bank',1000,1000,1000],
+  ['INDIGO','IndiGo',150,150,150],
+  ['INDUSINDBK','IndusInd Bank',700,700,700],
+  ['INDUSTOWER','Indus Towers',1700,1700,1700],
+  ['INFY','Infosys',400,400,400],
+  ['INOXWIND','Inox Wind',3575,6400,6400],
+  ['IOC','Indian Oil Corporation',4875,4875,4875],
+  ['IREDA','IREDA',3450,4525,4525],
+  ['IRFC','IRFC',4250,5425,5425],
+  ['ITC','ITC',1600,1725,1725],
+  ['JINDALSTEL','Jindal Steel',625,625,625],
+  ['JIOFIN','Jio Financial Services',2350,2350,2350],
+  ['JSWENERGY','JSW Energy',1000,1075,1075],
+  ['JSWSTEEL','JSW Steel',675,675,675],
+  ['JUBLFOOD','Jubilant FoodWorks',1250,1250,1250],
+  ['KALYANKJIL','Kalyan Jewellers',1175,1350,1350],
+  ['KAYNES','Kaynes Technology',100,150,150],
+  ['KEI','KEI Industries',175,175,175],
+  ['KFINTECH','KFin Technologies',500,575,575],
+  ['KOTAKBANK','Kotak Mahindra Bank',2000,2000,2000],
+  ['KPITTECH','KPIT Technologies',425,775,775],
+  ['LAURUSLABS','Laurus Labs',850,850,850],
+  ['LICHSGFIN','LIC Housing Finance',1000,1000,1000],
+  ['LICI','LIC of India',1400,1400,1400],
+  ['LODHA','Lodha Developers',450,625,625],
+  ['LT','Larsen & Toubro',175,175,175],
+  ['LTF','L&T Finance',2250,2250,2250],
+  ['LTM','LTIMindtree',150,150,150],
+  ['LUPIN','Lupin',425,425,425],
+  ['M&M','Mahindra & Mahindra',200,200,200],
+  ['MANAPPURAM','Manappuram Finance',3000,3000,3000],
+  ['MANKIND','Mankind Pharma',225,250,250],
+  ['MARICO','Marico',1200,1200,1200],
+  ['MARUTI','Maruti Suzuki',50,50,50],
+  ['MAXHEALTH','Max Healthcare',525,525,525],
+  ['MAZDOCK','Mazagon Dock',200,225,225],
+  ['MCX','MCX',625,225,225],
+  ['MFSL','Max Financial Services',400,400,400],
+  ['MOTHERSON','Samvardhana Motherson',6150,6150,6150],
+  ['MOTILALOFS','Motilal Oswal',775,775,775],
+  ['MPHASIS','Mphasis',275,275,275],
+  ['MUTHOOTFIN','Muthoot Finance',275,275,275],
+  ['NAM-INDIA','Nippon Life India AMC',625,625,625],
+  ['NATIONALUM','NALCO',1875,1875,1875],
+  ['NAUKRI','Info Edge (Naukri)',375,550,550],
+  ['NBCC','NBCC',6500,6500,6500],
+  ['NESTLEIND','Nestle India',500,500,500],
+  ['NHPC','NHPC',6400,6950,6950],
+  ['NMDC','NMDC',6750,6750,6750],
+  ['NTPC','NTPC',1500,1500,1500],
+  ['NUVAMA','Nuvama Wealth',500,500,0],
+  ['NYKAA','Nykaa',3125,3125,3125],
+  ['OBEROIRLTY','Oberoi Realty',350,350,350],
+  ['OFSS','Oracle Financial Services',75,100,100],
+  ['OIL','Oil India',1400,1400,1400],
+  ['ONGC','ONGC',2250,2250,2250],
+  ['PAGEIND','Page Industries',15,20,20],
+  ['PATANJALI','Patanjali Foods',900,1075,1075],
+  ['PAYTM','Paytm',725,725,725],
+  ['PERSISTENT','Persistent Systems',100,125,125],
+  ['PETRONET','Petronet LNG',1900,1900,1900],
+  ['PFC','Power Finance Corporation',1300,1300,1300],
+  ['PGEL','PG Electroplast',950,950,950],
+  ['PHOENIXLTD','Phoenix Mills',350,350,350],
+  ['PIDILITIND','Pidilite Industries',500,500,500],
+  ['PIIND','PI Industries',175,175,175],
+  ['PNB','Punjab National Bank',8000,8000,8000],
+  ['PNBHOUSING','PNB Housing Finance',650,650,650],
+  ['POLICYBZR','PB FinTech',350,350,350],
+  ['POLYCAB','Polycab',125,125,125],
+  ['POWERGRID','Power Grid Corporation',1900,1900,1900],
+  ['POWERINDIA','Hitachi Energy',25,25,25],
+  ['PREMIERENE','Premier Energies',575,650,650],
+  ['PRESTIGE','Prestige Estates',450,450,450],
+  ['RADICO','Radico Khaitan',150,150,150],
+  ['RBLBANK','RBL Bank',3175,3175,3175],
+  ['RECLTD','REC',1400,1575,1575],
+  ['RELIANCE','Reliance Industries',500,500,500],
+  ['RVNL','Rail Vikas Nigam',1525,1925,1925],
+  ['SAIL','SAIL',4700,4700,4700],
+  ['SAMMAANCAP','Sammaan Capital',4300,0,0],
+  ['SBICARD','SBI Cards',800,800,800],
+  ['SBILIFE','SBI Life Insurance',375,375,375],
+  ['SBIN','State Bank of India',750,750,750],
+  ['SHREECEM','Shree Cement',25,25,25],
+  ['SHRIRAMFIN','Shriram Finance',825,825,825],
+  ['SIEMENS','Siemens',175,175,175],
+  ['SOLARINDS','Solar Industries',50,50,50],
+  ['SONACOMS','Sona BLW Precision',1225,1225,1225],
+  ['SRF','SRF',200,200,200],
+  ['SUNPHARMA','Sun Pharmaceutical',350,350,350],
+  ['SUPREMEIND','Supreme Industries',175,175,175],
+  ['SUZLON','Suzlon Energy',9025,12700,12700],
+  ['SWIGGY','Swiggy',1300,1825,1825],
+  ['TATACONSUM','Tata Consumer Products',550,550,550],
+  ['TATAELXSI','Tata Elxsi',100,125,125],
+  ['TATAPOWER','Tata Power',1450,1450,1450],
+  ['TATASTEEL','Tata Steel',2750,2750,2750],
+  ['TCS','Tata Consultancy Services',175,225,225],
+  ['TECHM','Tech Mahindra',600,600,600],
+  ['TIINDIA','Tube Investment',200,200,200],
+  ['TITAN','Titan',175,175,175],
+  ['TMPV','Tata Motors PV',800,1600,1600],
+  ['TORNTPHARM','Torrent Pharmaceuticals',125,125,125],
+  ['TRENT','Trent',150,225,225],
+  ['TVSMOTOR','TVS Motor',175,175,175],
+  ['ULTRACEMCO','UltraTech Cement',50,50,50],
+  ['UNIONBANK','Union Bank of India',4425,4425,4425],
+  ['UNITDSPR','United Spirits',400,400,400],
+  ['UNOMINDA','UNO Minda',550,550,550],
+  ['UPL','UPL',1355,1355,1355],
+  ['VBL','Varun Beverages',1125,1275,1275],
+  ['VEDL','Vedanta',1150,1150,1150],
+  ['VMM','Vishal Mega Mart',4850,4850,4850],
+  ['VOLTAS','Voltas',375,375,375],
+  ['WAAREEENER','Waaree Energies',175,175,175],
+  ['WIPRO','Wipro',3000,3000,3000],
+  ['YESBANK','Yes Bank',31100,31100,31100],
+  ['ZYDUSLIFE','Zydus Life Science',900,900,900]
 ];
 
-// Map for quick lookup
-var LOT_MAP = {};
-NSE_LOTS.forEach(function(row){ LOT_MAP[row.s] = row.lot; });
+// Months array (index 2=Jun, 3=Jul, 4=Aug in RAW_LOTS)
+var EXPIRY_MONTH_COLS = {0:2, 1:3, 2:4};
+var EXPIRY_MONTHS = ['Jun 2026','Jul 2026','Aug 2026'];
+
+// Build lookup: symbol -> {name, lots:[jun,jul,aug]}
+var LOT_DB = {};
+RAW_LOTS.forEach(function(r){
+  LOT_DB[r[0]] = {name:r[1], lots:[r[2],r[3],r[4]]};
+});
+
+// ─── NSE EXPIRY DATE CALCULATOR ───────────────────────────────────────────────
+// Rules (as of 2024 revision):
+//   Index weekly  : every Tuesday
+//   Index monthly : last Tuesday of month
+//   Stock monthly : last Tuesday of month
+//   SENSEX/BANKEX weekly: Thursday; monthly: last Thursday
+// If expiry falls on holiday, move to previous trading day
+// Simplified: we compute last Tuesday / Thursday of each month
+// and generate next 12 monthly + next 8 weekly Tuesdays
+
+var NSE_HOLIDAYS_2026 = [
+  '2026-01-26','2026-02-19','2026-03-25','2026-03-30',
+  '2026-04-02','2026-04-06','2026-04-10','2026-04-14',
+  '2026-04-30','2026-05-01','2026-08-15','2026-10-02',
+  '2026-10-22','2026-11-04','2026-11-14','2026-12-25'
+];
+
+function isHoliday(d) {
+  var s = d.getFullYear()+'-'
+    + String(d.getMonth()+1).padStart(2,'0')+'-'
+    + String(d.getDate()).padStart(2,'0');
+  return NSE_HOLIDAYS_2026.indexOf(s) >= 0 || d.getDay()===0 || d.getDay()===6;
+}
+
+function prevTradingDay(d) {
+  var r = new Date(d);
+  r.setDate(r.getDate()-1);
+  while(isHoliday(r)) r.setDate(r.getDate()-1);
+  return r;
+}
+
+function lastWeekdayOfMonth(year, month, dow) {
+  // dow: 2=Tuesday, 4=Thursday
+  var d = new Date(year, month+1, 0); // last day of month
+  while(d.getDay() !== dow) d.setDate(d.getDate()-1);
+  return d;
+}
+
+function formatDate(d) {
+  var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return days[d.getDay()]+' '+d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
+}
+function formatDateShort(d) {
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
+}
+
+function computeExpiries() {
+  var now   = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var result = {weekly:[], monthly:[], stocks:[]};
+
+  // Weekly Tuesdays – next 8
+  var d = new Date(today);
+  // Move to next Tuesday
+  while(d.getDay() !== 2) d.setDate(d.getDate()+1);
+  for(var i=0; i<8; i++) {
+    var exp = new Date(d);
+    if(isHoliday(exp)) exp = prevTradingDay(exp);
+    if(exp >= today) result.weekly.push({date:exp, label:'NIFTY Weekly – '+formatDateShort(exp)});
+    d.setDate(d.getDate()+7);
+  }
+
+  // Monthly – next 6 months (last Tuesday)
+  var y = today.getFullYear(), m = today.getMonth();
+  for(var i=0; i<6; i++) {
+    var lt = lastWeekdayOfMonth(y, m, 2); // Tuesday
+    if(isHoliday(lt)) lt = prevTradingDay(lt);
+    if(lt >= today) {
+      result.monthly.push({date:lt, label:'Monthly (Stock/Index) – '+formatDateShort(lt)});
+      result.stocks.push({date:lt, label:'Stock F&O – '+formatDateShort(lt)});
+    }
+    m++;
+    if(m>11){m=0;y++;}
+  }
+
+  // Weekly Thursdays for SENSEX/BANKEX – next 4
+  var dt = new Date(today);
+  while(dt.getDay() !== 4) dt.setDate(dt.getDate()+1);
+  for(var i=0; i<4; i++) {
+    var exp2 = new Date(dt);
+    if(isHoliday(exp2)) exp2 = prevTradingDay(exp2);
+    if(exp2 >= today) result.weekly.push({date:exp2, label:'SENSEX/BANKEX Weekly – '+formatDateShort(exp2)});
+    dt.setDate(dt.getDate()+7);
+  }
+
+  // Sort weekly by date
+  result.weekly.sort(function(a,b){return a.date-b.date;});
+
+  return result;
+}
+
 
 // ─── State ────────────────────────────────────────────────────────────────────
 var legs = [];
@@ -450,51 +684,104 @@ var CFG = {
 // ─── Build symbol dropdown ────────────────────────────────────────────────────
 function buildSymbolDropdown() {
   var sel = document.getElementById('symbolSel');
-  var cats = {};
-  NSE_LOTS.forEach(function(row) {
-    if (!cats[row.cat]) cats[row.cat] = [];
-    cats[row.cat].push(row);
+  var indices = [], stocks = [];
+  RAW_LOTS.forEach(function(r){
+    if(['NIFTY','BANKNIFTY','FINNIFTY','MIDCPNIFTY','NIFTYNXT50'].indexOf(r[0])>=0)
+      indices.push(r);
+    else
+      stocks.push(r);
   });
-  var html = '';
-  Object.keys(cats).forEach(function(cat) {
-    html += '<optgroup label="' + cat + '">';
-    cats[cat].forEach(function(row) {
-      html += '<option value="' + row.s + '" data-lot="' + row.lot + '">' + row.s + ' – ' + row.n + ' ('+row.lot+')</option>';
-    });
-    html += '</optgroup>';
-  });
+  var html = '<optgroup label="─── Indices ───">';
+  indices.forEach(function(r){ html += '<option value="'+r[0]+'">'+r[0]+' – '+r[1]+'</option>'; });
+  html += '</optgroup><optgroup label="─── Stocks (A–Z) ───">';
+  stocks.forEach(function(r){ html += '<option value="'+r[0]+'">'+r[0]+' – '+r[1]+'</option>'; });
+  html += '</optgroup>';
   sel.innerHTML = html;
   sel.value = 'NIFTY';
+  buildExpiryDropdown();
   onSymbolChange();
 }
 
+function buildExpiryDropdown() {
+  var sel = document.getElementById('expirySel');
+  var expiries = computeExpiries();
+  var opts = '';
+  opts += '<optgroup label="Weekly">';
+  expiries.weekly.forEach(function(e){ opts += '<option value="'+e.date.toISOString()+'">'+e.label+'</option>'; });
+  opts += '</optgroup>';
+  opts += '<optgroup label="Monthly (Index+Stock)">';
+  expiries.monthly.forEach(function(e){ opts += '<option value="'+e.date.toISOString()+'">'+e.label+'</option>'; });
+  opts += '</optgroup>';
+  sel.innerHTML = opts;
+  // Auto-set DTE
+  updateDTEFromExpiry();
+}
+
+function updateDTEFromExpiry() {
+  var sel = document.getElementById('expirySel');
+  if (!sel || !sel.value) return;
+  var expDate = new Date(sel.value);
+  var today   = new Date();
+  today.setHours(0,0,0,0);
+  var dte = Math.max(0, Math.round((expDate - today) / 86400000));
+  document.getElementById('dteInput').value = dte;
+}
+
 function onSymbolChange() {
-  var sel = document.getElementById('symbolSel');
-  var opt = sel.options[sel.selectedIndex];
-  var lot = parseInt(opt.getAttribute('data-lot'), 10) || 1;
-  currentLot = lot;
-  document.getElementById('lotInfo').textContent = 'Lot size: ' + lot.toLocaleString('en-IN') + ' shares/units';
-  // Also fill ticker input
-  var sym = sel.value;
-  if (sym !== 'CUSTOM') {
+  var sym = document.getElementById('symbolSel').value;
+  var monthIdx = parseInt(document.getElementById('lotMonthSel').value, 10) || 0;
+  var rec = LOT_DB[sym];
+  if (rec) {
+    var lot = rec.lots[monthIdx];
+    currentLot = lot || 1;
     document.getElementById('tickerInput').value = sym;
+  } else {
+    currentLot = 1;
   }
+  updateLotDisplay();
+}
+
+function onLotMonthChange() {
+  var sym = document.getElementById('symbolSel').value;
+  var monthIdx = parseInt(document.getElementById('lotMonthSel').value, 10) || 0;
+  var rec = LOT_DB[sym];
+  if (rec) {
+    currentLot = rec.lots[monthIdx] || 1;
+    updateLotDisplay();
+  }
+}
+
+function updateLotDisplay() {
+  var el = document.getElementById('lotInfo');
+  if (el) el.textContent = currentLot > 0 ? currentLot.toLocaleString('en-IN') : '—';
 }
 
 // ─── Build lot size reference table in Settings ───────────────────────────────
 function buildLotTable() {
   var el = document.getElementById('lotSizeTable');
+  var monthIdx = parseInt((document.getElementById('lotMonthSel')||{value:'0'}).value,10)||0;
   var html = '';
-  NSE_LOTS.forEach(function(row) {
-    if (row.s === 'CUSTOM') return;
-    html += '<div class="sr" style="padding:8px 14px;">'
-      + '<span class="sr-lbl" style="font-size:13px;font-family:var(--mono);color:var(--blue);">' + row.s + '</span>'
-      + '<span style="font-size:12px;color:var(--text2);flex:2;">' + row.n + '</span>'
-      + '<span style="font-size:13px;font-family:var(--mono);color:var(--text);">' + row.lot.toLocaleString('en-IN') + '</span>'
+  // Header
+  html += '<div class="sr" style="padding:8px 14px;background:var(--card2);">'
+    + '<span style="font-size:11px;color:var(--text2);flex:1;font-weight:600;">SYMBOL</span>'
+    + '<span style="font-size:11px;color:var(--text2);flex:2;">NAME</span>'
+    + '<span style="font-size:11px;color:var(--text2);text-align:right;width:80px;">JUN</span>'
+    + '<span style="font-size:11px;color:var(--text2);text-align:right;width:80px;">JUL</span>'
+    + '<span style="font-size:11px;color:var(--text2);text-align:right;width:80px;">AUG</span>'
+    + '</div>';
+  RAW_LOTS.forEach(function(r){
+    if(!r[2]&&!r[3]&&!r[4]) return; // skip expired
+    html += '<div class="sr" style="padding:6px 14px;">'
+      + '<span style="font-size:12px;font-family:var(--mono);color:var(--blue);flex:1;">'+r[0]+'</span>'
+      + '<span style="font-size:11px;color:var(--text2);flex:2;">'+r[1]+'</span>'
+      + '<span style="font-size:12px;font-family:var(--mono);color:var(--text);text-align:right;width:80px;">'+(r[2]||'—')+'</span>'
+      + '<span style="font-size:12px;font-family:var(--mono);color:var(--text3);text-align:right;width:80px;">'+(r[3]||'—')+'</span>'
+      + '<span style="font-size:12px;font-family:var(--mono);color:var(--text3);text-align:right;width:80px;">'+(r[4]||'—')+'</span>'
       + '</div>';
   });
   el.innerHTML = html;
 }
+
 
 // ─── Event wiring (all addEventListener, no inline onclick) ───────────────────
 function init() {
@@ -512,8 +799,10 @@ function init() {
   document.getElementById('pdfBtn').addEventListener('click',   exportPDF);
   document.getElementById('xlsxBtn').addEventListener('click',  exportExcel);
 
-  // Symbol selector
+  // Symbol / expiry / lot month selectors
   document.getElementById('symbolSel').addEventListener('change', onSymbolChange);
+  document.getElementById('expirySel').addEventListener('change', updateDTEFromExpiry);
+  document.getElementById('lotMonthSel').addEventListener('change', onLotMonthChange);
 
   // Add leg buttons
   ['LC','SC','LP','SP','LF','SF','LS','SS'].forEach(function(t) {
@@ -920,6 +1209,7 @@ function saveStrategy() {
     ticker:  document.getElementById('tickerInput').value || '',
     symbol:  sym,
     lot:     currentLot,
+    lotMonth: parseInt(document.getElementById('lotMonthSel').value,10)||0,
     spot:    parseFloat(document.getElementById('spotInput').value) || 0,
     legs:    JSON.parse(JSON.stringify(legs)),
     dte:     document.getElementById('dteInput').value,
@@ -970,11 +1260,14 @@ function loadStrategy(id) {
   document.getElementById('spotInput').value   = s.spot;
   document.getElementById('dteInput').value    = s.dte || 30;
   // Restore symbol/lot
-  if (s.symbol && document.getElementById('symbolSel').querySelector('option[value="'+s.symbol+'"]')) {
-    document.getElementById('symbolSel').value = s.symbol;
+  if (s.symbol) {
+    var symSel = document.getElementById('symbolSel');
+    if (symSel.querySelector('option[value="'+s.symbol+'"]')) symSel.value = s.symbol;
   }
+  if (s.lotMonth !== undefined) document.getElementById('lotMonthSel').value = s.lotMonth;
   currentLot = s.lot || 25;
-  document.getElementById('lotInfo').textContent = 'Lot size: ' + currentLot.toLocaleString('en-IN') + ' shares/units';
+  updateLotDisplay();
+  buildExpiryDropdown();
   renderLegs();
   document.getElementById('resultsSection').style.display = 'none';
   switchTab('Builder');
@@ -1225,7 +1518,8 @@ function exportPDF() {
   doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.text('StratCalc',15,18);
   doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(148,163,184);
   doc.text('NSE Options Strategy Report',15,25);
-  doc.text(sym+' @ \u20b9'+lastRes.spot+' | Lot:'+getLot()+' | '+strat+' | '+new Date().toLocaleDateString('en-IN'),15,32);
+  var expEl=document.getElementById('expirySel'); var expTxt=expEl&&expEl.options[expEl.selectedIndex]?expEl.options[expEl.selectedIndex].text.split('–').pop().trim():'—';
+  doc.text(sym+' @ \u20b9'+lastRes.spot+' | Lot:'+getLot()+' | Exp:'+expTxt+' | '+new Date().toLocaleDateString('en-IN'),15,32);
   var rows = [
     ['P&L at Spot',   (lastRes.cur>=0?'+':'')+inr(lastRes.cur)],
     ['Max Profit',    lastRes.mm.maxPUnlim ? 'Unlimited' : '+'+inr(lastRes.mm.maxP)],
