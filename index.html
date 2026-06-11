@@ -1618,12 +1618,27 @@ function runCalc(legList, spot, gridId, chartId, tblId, mgnId) {
   var bes  = findBEs(legList, spot);
   var lot  = getLot();
 
-  // Net premium
-  var netPrem = 0;
+  // ── Net Premium (correct debit/credit direction) ─────────────────────────
+  // Buyers (sign=+1) PAY premium  → Debit  (cash out)
+  // Sellers (sign=-1) RECEIVE premium → Credit (cash in)
+  // netPrem > 0 = net credit, < 0 = net debit
+  var premCredit = 0;
+  var premDebit  = 0;
   legList.forEach(function(leg){
     var cfg = CFG[leg.type];
-    if (cfg.otype==='call'||cfg.otype==='put') netPrem += cfg.sign * leg.premium * leg.qty * lot;
+    var legPrem = (leg.premium || 0) * (leg.qty || 1) * lot;
+    if (cfg.otype === 'call' || cfg.otype === 'put') {
+      if (cfg.sign === -1) premCredit += legPrem;  // Sell → receive premium
+      else                  premDebit  += legPrem;  // Buy  → pay premium
+    }
+    // Futures/Stock: no option premium — skip for net premium display
   });
+  var netPrem     = premCredit - premDebit;
+  var isNetCredit = netPrem >= 0;
+  var premLabel   = isNetCredit ? 'Net Credit' : 'Net Debit';
+  var premDisplay = inr(Math.abs(netPrem));
+  var premSign    = isNetCredit ? '+' : '-';
+  var premColor   = isNetCredit ? 'profit' : 'loss';
 
   // Risk/reward
   var rr = 'N/A';
@@ -1631,22 +1646,23 @@ function runCalc(legList, spot, gridId, chartId, tblId, mgnId) {
     rr = (mm.maxP / Math.abs(mm.maxL)).toFixed(2) + ':1';
   else if (mm.maxPUnlim && mm.maxL < 0) rr = '\u221e';
 
-  // Margin
+  // Margin (short legs only)
   var mgnRate = (parseFloat(document.getElementById('mgnRate').value) || 15) / 100;
   var mgn = 0;
   legList.forEach(function(leg){
     var cfg = CFG[leg.type];
-    if (cfg.sign === -1) mgn += (cfg.hasK ? leg.strike : leg.entryPrice) * leg.qty * lot * mgnRate;
+    if (cfg.sign === -1) mgn += (cfg.hasK ? (leg.strike||0) : (leg.entryPrice||0)) * (leg.qty||1) * lot * mgnRate;
   });
 
   lastRes = {legList:legList, spot:spot, prices:prices, payoffs:payoffs,
-             cur:cur, mm:mm, bes:bes, netPrem:netPrem, rr:rr, mgn:mgn};
+             cur:cur, mm:mm, bes:bes, netPrem:netPrem,
+             premCredit:premCredit, premDebit:premDebit, rr:rr, mgn:mgn};
 
   // Result cards
   var g = document.getElementById(gridId);
   g.innerHTML =
     mkRc('P&L at Spot',   (cur>=0?'+':'')+inr(cur),       cur>=0?'profit':'loss',   'At \u20b9'+spot.toFixed(2)) +
-    mkRc('Net Premium',   (netPrem>=0?'+':'')+inr(netPrem), netPrem>=0?'profit':'loss', netPrem>=0?'Credit':'Debit') +
+    mkRc('Net Premium',   premSign+premDisplay,            premColor,                premLabel) +
     mkRc('Max Profit',    mm.maxPUnlim?'Unlimited':'+'+inr(mm.maxP), mm.maxPUnlim?'unlimited':'profit', '') +
     mkRc('Max Loss',      mm.maxLUnlim?'Unlimited':inr(mm.maxL),     mm.maxLUnlim?'unlimited':'loss',   '') +
     mkRc('Risk/Reward',   rr,  'neutral', '') +
@@ -2165,7 +2181,7 @@ function exportPDF() {
     ['Max Loss',      lastRes.mm.maxLUnlim ? 'Unlimited' : inr(lastRes.mm.maxL)],
     ['Breakevens',    lastRes.bes.length ? lastRes.bes.map(function(b){return '\u20b9'+b.toFixed(2);}).join(', ') : 'None'],
     ['Risk/Reward',   lastRes.rr],
-    ['Net Premium',   inr(lastRes.netPrem)],
+    ['Net Premium',   (lastRes.netPrem>=0?'+ ':'- ')+inr(Math.abs(lastRes.netPrem))+' ('+( lastRes.netPrem>=0?'Net Credit':'Net Debit')+')'],
     ['Lot Size',      getLot().toString()],
     ['Margin Est.',   inr(lastRes.mgn)]
   ];
@@ -2199,7 +2215,8 @@ function exportExcel() {
     ['Max Loss',    lastRes.mm.maxLUnlim ? 'Unlimited' : lastRes.mm.maxL],
     ['Breakevens',  lastRes.bes.join(', ')],
     ['Risk/Reward', lastRes.rr],
-    ['Net Premium', lastRes.netPrem],
+    ['Net Premium', (lastRes.netPrem>=0?'+':'-')+inr(Math.abs(lastRes.netPrem))],
+    ['Premium Direction', lastRes.netPrem>=0?'Net Credit':'Net Debit'],
     ['Margin Est.', lastRes.mgn], [],
     ['#','Type','Strike','Premium','Lots']
   ];
