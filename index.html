@@ -599,7 +599,16 @@ label.lbl {
         <button class="btn-sec green" id="xlsxBtn">📊 Export Excel</button>
       </div>
       <div class="cwrap"><h3>Payoff at Expiry</h3><canvas class="ccvs" id="payoffChart"></canvas></div>
-      <div class="twrap"><h3>P&amp;L at Different Prices</h3><div id="pnlTbl"></div></div>
+      <div class="twrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+          <h3 style="margin-bottom:0;flex-shrink:0;">P&amp;L at Different Prices</h3>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            <label class="lbl" style="margin-bottom:0;white-space:nowrap;">Step &#8377;</label>
+            <select class="inp-sel" id="pnlInterval" style="width:76px;padding:5px 22px 5px 8px;font-size:14px;"></select>
+          </div>
+        </div>
+        <div id="pnlTbl"></div>
+      </div>
       <div class="rc wide" id="mgnCard" style="display:none;margin-bottom:10px;"></div>
     </div>
     <div style="height:20px;"></div>
@@ -1336,6 +1345,19 @@ function closeRename() {
   renameTargetId = null;
 }
 
+// ─── P&L Interval Dropdown ────────────────────────────────────────────────────
+function buildPnlIntervalDropdown() {
+  var sel = document.getElementById('pnlInterval');
+  if (!sel) return;
+  var html = '';
+  // 1–9 single steps, then 10, 15, 20, 25, 50 for bigger instruments
+  var opts = [1,2,3,4,5,6,7,8,9,10,15,20,25,30,40,50,60,70,75,80,90,99];
+  opts.forEach(function(v){
+    html += '<option value="'+v+'"'+(v===5?' selected':'')+'>'+v+'</option>';
+  });
+  sel.innerHTML = html;
+}
+
 // ─── Event wiring (all addEventListener, no inline onclick) ───────────────────
 function init() {
   // Nav
@@ -1386,6 +1408,38 @@ function init() {
   buildSymbolDropdown();
   buildPresets();
   buildLotTable();
+  buildPnlIntervalDropdown();
+
+  // P&L interval change: re-render table if results exist
+  var intEl = document.getElementById('pnlInterval');
+  if (intEl) {
+    intEl.addEventListener('change', function() {
+      if (lastRes) {
+        // Re-render P&L table only (no full recalc needed)
+        var legList = lastRes.legList;
+        var spot    = lastRes.spot;
+        var bes     = lastRes.bes;
+        var interval = parseFloat(intEl.value) || 5;
+        var rangeMult = Math.max(20, Math.ceil(spot * 0.4 / interval));
+        var rows = '';
+        for (var ri = -rangeMult; ri <= rangeMult; ri++) {
+          var p = Math.round((spot + ri * interval) * 100) / 100;
+          if (p <= 0) continue;
+          var pnl  = totalPnL(legList, p);
+          var isCur = (Math.abs(p - spot) < interval * 0.01);
+          var isBE  = bes.some(function(b){ return Math.abs(b - p) < interval * 0.5; });
+          var cls   = isCur ? 'cr' : isBE ? 'be' : '';
+          var pct   = ((p - spot) / spot * 100).toFixed(1);
+          rows += '<tr class="'+cls+'">'
+            + '<td>₹'+p.toFixed(p < 100 ? 2 : 1)+'<small style="color:var(--text3);"> ('+(parseFloat(pct)>0?'+':'')+pct+'%)</small></td>'
+            + '<td class="'+(pnl>=0?'pos':'neg')+'">'+(pnl>=0?'+':'')+inr(pnl)+'</td>'
+            + '</tr>';
+        }
+        var td = document.getElementById('pnlTbl');
+        if (td) td.innerHTML = '<table class="ptbl"><thead><tr><th>Price</th><th>Net P&amp;L</th></tr></thead><tbody>'+rows+'</tbody></table>';
+      }
+    });
+  }
   renderLegs();
   renderSaved();
   updateMkt();
@@ -1673,18 +1727,27 @@ function runCalc(legList, spot, gridId, chartId, tblId, mgnId) {
 
   drawChart(chartId, prices, payoffs, spot, bes);
 
-  // P&L Table
-  var steps = [.65,.7,.75,.8,.85,.9,.93,.96,.98,1.0,1.02,1.05,1.08,1.1,1.15,1.2,1.3,1.4,1.5];
+  // P&L Table — user-defined interval
+  var intervalEl = document.getElementById('pnlInterval');
+  var interval = intervalEl ? (parseFloat(intervalEl.value) || 5) : 5;
+  // Generate rows from spot-20*interval to spot+20*interval at given step
+  // Always include spot as current row, and clamp to positive prices
+  var pnlRows = [];
+  var rangeMult = Math.max(20, Math.ceil(spot * 0.4 / interval)); // ~40% range
+  for (var ri = -rangeMult; ri <= rangeMult; ri++) {
+    var p = Math.round((spot + ri * interval) * 100) / 100;
+    if (p <= 0) continue;
+    pnlRows.push(p);
+  }
   var rows = '';
-  steps.forEach(function(m){
-    var p   = Math.round(spot * m * 20) / 20;
+  pnlRows.forEach(function(p){
     var pnl = totalPnL(legList, p);
-    var isCur = (m === 1.0);
-    var isBE  = bes.some(function(b){ return Math.abs(b-p) < spot*0.013; });
+    var isCur = (Math.abs(p - spot) < interval * 0.01);
+    var isBE  = bes.some(function(b){ return Math.abs(b - p) < interval * 0.5; });
     var cls   = isCur ? 'cr' : isBE ? 'be' : '';
     var pct   = ((p - spot) / spot * 100).toFixed(1);
-    rows += '<tr class="'+cls+'">' 
-      + '<td>\u20b9'+p.toFixed(1)+'<small style="color:var(--text3);"> ('+(parseFloat(pct)>0?'+':'')+pct+'%)</small></td>'
+    rows += '<tr class="'+cls+'">'
+      + '<td>\u20b9'+p.toFixed(p < 100 ? 2 : 1)+'<small style="color:var(--text3);"> ('+(parseFloat(pct)>0?'+':'')+pct+'%)</small></td>'
       + '<td class="'+(pnl>=0?'pos':'neg')+'">'+(pnl>=0?'+':'')+inr(pnl)+'</td>'
       + '</tr>';
   });
