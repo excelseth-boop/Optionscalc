@@ -57,7 +57,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 15px;
+  font-size: 20px;
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%; /* prevent iOS font size inflation */
 }
@@ -86,12 +86,12 @@ input, select, button, textarea {
 }
 .hlogo { width: 32px; height: 32px; flex-shrink: 0; }
 .htit  { flex: 1; min-width: 0; overflow: hidden; }
-.htit h1 { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.htit p  { font-size: 11px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.htit h1 { font-size: 22px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.htit p  { font-size: 14px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lbadge {
   display: flex; align-items: center; gap: 4px;
   background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.3);
-  border-radius: 20px; padding: 3px 8px; font-size: 11px; color: var(--green);
+  border-radius: 20px; padding: 3px 8px; font-size: 14px; color: var(--green);
   flex-shrink: 0; white-space: nowrap;
 }
 .ldot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; flex-shrink: 0; }
@@ -121,7 +121,7 @@ input, select, button, textarea {
 .nb {
   flex: 1; display: flex; flex-direction: column; align-items: center;
   gap: 2px; padding: 8px 2px; border: none; background: none;
-  cursor: pointer; color: var(--text3); font-size: 10px;
+  cursor: pointer; color: var(--text3); font-size: 13px;
   -webkit-appearance: none; touch-action: manipulation; overflow: hidden;
 }
 .nb.on { color: var(--blue); }
@@ -129,19 +129,19 @@ input, select, button, textarea {
 
 /* ── FORM ELEMENTS ── */
 label.lbl {
-  display: block; font-size: 11px; color: var(--text2);
+  display: block; font-size: 14px; color: var(--text2);
   text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px;
 }
 /* 16px minimum prevents iOS Safari zoom on focus */
 .inp {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); padding: 9px 10px; font-size: 16px;
+  color: var(--text); padding: 9px 10px; font-size: 21px;
   outline: none; width: 100%; display: block;
 }
 .inp-mono { font-family: var(--mono); }
 .inp-sel {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); padding: 9px 10px; font-size: 16px;
+  color: var(--text); padding: 9px 10px; font-size: 21px;
   outline: none; width: 100%; cursor: pointer;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px;
@@ -162,18 +162,28 @@ label.lbl {
   flex: 1; position: relative; min-width: 0;
 }
 .ac-wrap .inp-ticker {
-  width: 100%; font-size: 16px; font-weight: 600;
+  width: 100%; font-size: 21px; font-weight: 600;
   text-transform: uppercase; padding: 9px 8px;
+}
+/* Watermark placeholder — faint italic, no caps */
+.inp-ticker::placeholder,
+.inp-ticker::-webkit-input-placeholder {
+  color: var(--text3);
+  font-weight: 400;
+  font-style: italic;
+  text-transform: none;
+  opacity: 1;
+  letter-spacing: 0;
 }
 .utop .inp-spot {
   /* Shrink to ~25% of the bar. Never wider than 90px, never push others off */
   width: 25%; max-width: 90px; min-width: 60px;
-  flex-shrink: 0; font-family: var(--mono); font-size: 16px;
+  flex-shrink: 0; font-family: var(--mono); font-size: 21px;
   padding: 9px 6px; text-align: right;
 }
 .btn-fetch {
   flex-shrink: 0;
-  background: var(--blue); color: #fff; font-size: 14px; font-weight: 700;
+  background: var(--blue); color: #fff; font-size: 18px; font-weight: 700;
   padding: 9px 12px; border-radius: 8px; border: none;
   cursor: pointer; -webkit-appearance: none; touch-action: manipulation;
   white-space: nowrap;
@@ -201,27 +211,27 @@ label.lbl {
 }
 .ac-item:last-child { border-bottom: none; }
 .ac-item:active, .ac-item.hi { background: rgba(59,130,246,.15); }
-.ac-sym  { font-size: 13px; font-weight: 700; font-family: var(--mono); color: var(--blue); width: 72px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ac-name { font-size: 12px; color: var(--text2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ac-lot  { font-size: 11px; color: var(--text3); font-family: var(--mono); flex-shrink: 0; white-space: nowrap; }
-.ac-none { padding: 12px; text-align: center; font-size: 13px; color: var(--text3); }
+.ac-sym  { font-size: 17px; font-weight: 700; font-family: var(--mono); color: var(--blue); width: 72px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-name { font-size: 16px; color: var(--text2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-lot  { font-size: 14px; color: var(--text3); font-family: var(--mono); flex-shrink: 0; white-space: nowrap; }
+.ac-none { padding: 12px; text-align: center; font-size: 17px; color: var(--text3); }
 
 /* ── STRATEGY NAME ── */
 .sname {
   width: 100%; background: var(--card); border: 1px solid var(--border);
   border-radius: 8px; color: var(--text); padding: 10px 12px;
-  font-size: 16px; outline: none; margin-bottom: 10px; display: block;
+  font-size: 21px; outline: none; margin-bottom: 10px; display: block;
 }
 /* Lot info display */
 .lot-info {
   width: 100%; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 8px; padding: 9px 10px; font-size: 16px;
+  border-radius: 8px; padding: 9px 10px; font-size: 21px;
   font-family: var(--mono); color: var(--green);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 /* ── SEC TITLE ── */
-.sec-title { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.sec-title { font-size: 16px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
 
 /* ── ADD LEG GRID — 4 cols, no overflow ── */
 .leg-grid {
@@ -230,12 +240,12 @@ label.lbl {
 }
 .alb {
   background: var(--card2); border-radius: 8px; padding: 8px 2px;
-  text-align: center; cursor: pointer; font-size: 10px; font-weight: 600;
+  text-align: center; cursor: pointer; font-size: 13px; font-weight: 600;
   color: var(--text2); -webkit-appearance: none; touch-action: manipulation;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   border: 1px solid var(--border); width: 100%; overflow: hidden;
 }
-.alb .ai { font-size: 16px; line-height: 1.3; }
+.alb .ai { font-size: 21px; line-height: 1.3; }
 .alb.lc { border-color: rgba(59,130,246,.5); color: var(--blue); }
 .alb.sc { border-color: rgba(239,68,68,.5);  color: var(--red); }
 .alb.lp { border-color: rgba(139,92,246,.5); color: var(--purple); }
@@ -256,11 +266,11 @@ label.lbl {
 .leg-hdr { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; overflow: hidden; }
 .leg-num {
   width: 22px; height: 22px; border-radius: 50%; background: var(--blue);
-  font-size: 11px; font-weight: 700; display: flex; align-items: center;
+  font-size: 14px; font-weight: 700; display: flex; align-items: center;
   justify-content: center; flex-shrink: 0; color: #fff;
 }
 .leg-badge {
-  font-size: 12px; font-weight: 600; padding: 3px 8px;
+  font-size: 16px; font-weight: 600; padding: 3px 8px;
   border-radius: 20px; flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -275,7 +285,7 @@ label.lbl {
 .leg-del {
   width: 28px; height: 28px; border-radius: 50%;
   background: rgba(239,68,68,.15); border: none; color: var(--red);
-  font-size: 18px; cursor: pointer; flex-shrink: 0;
+  font-size: 23px; cursor: pointer; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   -webkit-appearance: none; touch-action: manipulation;
 }
@@ -285,7 +295,7 @@ label.lbl {
 .leg-inp {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text); padding: 9px 6px;
-  font-size: 16px;   /* ≥16px — no iOS zoom */
+  font-size: 21px;   /* ≥16px — no iOS zoom */
   font-family: var(--mono); outline: none; width: 100%;
   text-align: center; display: block;
   /* Prevent typed numbers from growing the input beyond its grid cell */
@@ -301,7 +311,7 @@ label.lbl {
 .btn-calc {
   width: 100%; padding: 14px;
   background: linear-gradient(135deg, var(--blue), #1D4ED8);
-  color: #fff; font-size: 16px; font-weight: 700;
+  color: #fff; font-size: 21px; font-weight: 700;
   border: none; border-radius: 12px; cursor: pointer;
   margin-bottom: 8px; display: block;
   -webkit-appearance: none; touch-action: manipulation;
@@ -309,7 +319,7 @@ label.lbl {
 .btn-row { display: flex; gap: 8px; margin-bottom: 10px; width: 100%; }
 .btn-sec {
   flex: 1; padding: 10px; border-radius: 10px; background: var(--card2);
-  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-size: 17px; font-weight: 600; cursor: pointer;
   -webkit-appearance: none; touch-action: manipulation;
   border: 1px solid var(--border);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -331,16 +341,16 @@ label.lbl {
   min-width: 0;
 }
 .rc.wide { grid-column: 1 / -1; }
-.rc-lbl { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+.rc-lbl { font-size: 13px; color: var(--text2); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
 .rc-val {
-  font-size: 16px; font-weight: 700; font-family: var(--mono);
+  font-size: 21px; font-weight: 700; font-family: var(--mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .rc-val.profit   { color: var(--green); }
 .rc-val.loss     { color: var(--red); }
 .rc-val.neutral  { color: var(--text); }
-.rc-val.unlimited{ color: var(--amber); font-size: 13px; }
-.rc-sub { font-size: 10px; color: var(--text3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-val.unlimited{ color: var(--amber); font-size: 17px; }
+.rc-sub { font-size: 13px; color: var(--text3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── CHART ── */
 .cwrap {
@@ -348,7 +358,7 @@ label.lbl {
   border-radius: 12px; padding: var(--p); margin-bottom: 10px;
   width: 100%; overflow: hidden;
 }
-.cwrap h3 { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+.cwrap h3 { font-size: 17px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
 .ccvs { display: block; width: 100%; max-width: 100%; border-radius: 8px; }
 
 /* ── P&L TABLE ── */
@@ -357,24 +367,24 @@ label.lbl {
   border-radius: 12px; padding: var(--p); margin-bottom: 10px;
   width: 100%; overflow: hidden;
 }
-.twrap h3 { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+.twrap h3 { font-size: 17px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
 .ptbl {
-  width: 100%; border-collapse: collapse; font-size: 13px;
+  width: 100%; border-collapse: collapse; font-size: 17px;
   table-layout: fixed;   /* cells shrink to fit, never expand table */
 }
 .ptbl th {
   text-align: right; padding: 5px 6px; color: var(--text2);
-  font-size: 11px; border-bottom: 1px solid var(--border);
+  font-size: 14px; border-bottom: 1px solid var(--border);
   overflow: hidden;
 }
 .ptbl th:first-child { text-align: left; }
 .ptbl td {
   text-align: right; padding: 5px 6px;
   border-bottom: 1px solid rgba(45,63,94,.4);
-  font-family: var(--mono); font-size: 12px;
+  font-family: var(--mono); font-size: 16px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.ptbl td:first-child { text-align: left; color: var(--text2); font-size: 11px; }
+.ptbl td:first-child { text-align: left; color: var(--text2); font-size: 14px; }
 .ptbl tr.cr td { background: rgba(59,130,246,.12); }
 .ptbl tr.be td { background: rgba(245,158,11,.1); }
 .pos { color: var(--green); }
@@ -389,13 +399,13 @@ label.lbl {
   width: 100%; overflow: hidden;
 }
 .svi { flex: 1; min-width: 0; overflow: hidden; }
-.svn  { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.svs  { font-size: 12px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.svs2 { font-size: 11px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.svn  { font-weight: 600; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.svs  { font-size: 16px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.svs2 { font-size: 14px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .svacts { display: flex; gap: 6px; flex-shrink: 0; }
 .svbtn {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  padding: 6px 10px; font-size: 12px; cursor: pointer; color: var(--text2);
+  padding: 6px 10px; font-size: 16px; cursor: pointer; color: var(--text2);
   -webkit-appearance: none; touch-action: manipulation; white-space: nowrap;
 }
 .svbtn.del { color: var(--red); border-color: rgba(239,68,68,.3); }
@@ -415,8 +425,8 @@ label.lbl {
 }
 .pfchk.on { background: var(--blue); border-color: var(--blue); }
 .pfi  { flex: 1; min-width: 0; overflow: hidden; }
-.pfn  { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pfl  { font-size: 11px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pfn  { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pfl  { font-size: 14px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── SETTINGS ── */
 .sg { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 10px; width: 100%; }
@@ -425,10 +435,10 @@ label.lbl {
   border-bottom: 1px solid rgba(45,63,94,.5); gap: 8px; overflow: hidden;
 }
 .sr:last-child { border-bottom: none; }
-.sr-lbl { font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-lbl { font-size: 18px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sr input[type=number] {
   background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); padding: 6px 8px; font-size: 16px; font-family: var(--mono);
+  color: var(--text); padding: 6px 8px; font-size: 21px; font-family: var(--mono);
   width: 72px; max-width: 25vw; outline: none; text-align: right;
   -webkit-appearance: none; flex-shrink: 0;
 }
@@ -442,21 +452,21 @@ label.lbl {
   overflow: hidden;
 }
 .preset-btn:last-child { border-bottom: none; }
-.preset-lbl { font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.preset-arr { color: var(--text3); font-size: 12px; flex-shrink: 0; }
+.preset-lbl { font-size: 18px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preset-arr { color: var(--text3); font-size: 16px; flex-shrink: 0; }
 
 /* ── MISC ── */
 .divider { height: 1px; background: var(--border); margin: 12px 0; }
 .empty   { text-align: center; padding: 30px var(--p); color: var(--text3); }
-.ei  { font-size: 40px; margin-bottom: 8px; }
-.et  { font-size: 14px; color: var(--text2); margin-bottom: 4px; }
-.es  { font-size: 12px; }
+.ei  { font-size: 52px; margin-bottom: 8px; }
+.et  { font-size: 18px; color: var(--text2); margin-bottom: 4px; }
+.es  { font-size: 16px; }
 .toast {
   position: fixed;
   bottom: calc(72px + var(--sb));
   left: 50%; transform: translateX(-50%) translateY(16px);
   background: #1E3A5F; border: 1px solid var(--blue); border-radius: 10px;
-  padding: 10px 16px; font-size: 13px; color: var(--text);
+  padding: 10px 16px; font-size: 17px; color: var(--text);
   z-index: 9999; opacity: 0; transition: all .25s; pointer-events: none;
   max-width: calc(100vw - 32px);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -479,17 +489,17 @@ label.lbl {
   width: 36px; height: 4px; background: var(--border);
   border-radius: 2px; margin: 0 auto 16px;
 }
-.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+.modal-title { font-size: 21px; font-weight: 700; margin-bottom: 14px; }
 .modal-inp {
   width: 100%; background: var(--bg); border: 1px solid var(--border);
   border-radius: 10px; color: var(--text); padding: 12px 14px;
-  font-size: 16px; outline: none; margin-bottom: 12px; display: block;
+  font-size: 21px; outline: none; margin-bottom: 12px; display: block;
 }
 .modal-inp:focus { border-color: var(--blue); }
 .modal-row { display: flex; gap: 8px; }
 .modal-btn {
   flex: 1; padding: 12px; border-radius: 10px; border: none;
-  font-size: 15px; font-weight: 600; cursor: pointer;
+  font-size: 20px; font-weight: 600; cursor: pointer;
   -webkit-appearance: none; touch-action: manipulation;
 }
 .modal-btn.cancel { background: var(--card2); color: var(--text2); }
@@ -499,7 +509,7 @@ label.lbl {
 .svn { flex:1; }
 .sv-rename-btn {
   flex-shrink:0; background: none; border: none; cursor: pointer;
-  color: var(--text3); font-size: 14px; padding: 2px 4px;
+  color: var(--text3); font-size: 18px; padding: 2px 4px;
   -webkit-appearance: none; touch-action: manipulation;
 }
 
@@ -1047,6 +1057,11 @@ function buildSymbolDropdown() {
   sel.value = 'NIFTY';
   buildExpiryDropdown();
   onSymbolChange();
+  // Set initial placeholder on ticker input
+  var tickerEl = document.getElementById('tickerInput');
+  if (tickerEl && !tickerEl.value) {
+    tickerEl.placeholder = 'NIFTY – Nifty 50';
+  }
 }
 
 function buildExpiryDropdown() {
@@ -1081,7 +1096,11 @@ function onSymbolChange() {
   if (rec) {
     var lot = rec.lots[monthIdx];
     currentLot = lot || 1;
-    document.getElementById('tickerInput').value = sym;
+    // Update placeholder to show selected symbol as a hint — do NOT set value
+    var tickerEl = document.getElementById('tickerInput');
+    if (!tickerEl.value) {
+      tickerEl.placeholder = sym + ' – ' + rec.name;
+    }
   } else {
     currentLot = 1;
   }
@@ -1223,7 +1242,14 @@ function initAutocomplete() {
 
   inp.addEventListener('input', function() {
     var q = inp.value.trim();
-    if (!q) { acHide(); return; }
+    if (!q) {
+      acHide();
+      // Restore placeholder to show currently selected symbol
+      var sym = document.getElementById('symbolSel').value;
+      var rec = LOT_DB[sym];
+      if (rec) inp.placeholder = sym + ' – ' + rec.name;
+      return;
+    }
     var results = acSearch(q);
     // Auto-select if single exact match
     if (results.length === 1 && results[0][0].toUpperCase() === q.toUpperCase()) {
@@ -1859,7 +1885,14 @@ function loadStrategy(id) {
   lid = 0;
   legs.forEach(function(l){ if (l.id > lid) lid = l.id; });
   document.getElementById('stratName').value  = s.name;
-  document.getElementById('tickerInput').value = s.ticker || s.symbol || '';
+  // Show loaded symbol in placeholder, keep input empty for quick re-typing
+  var tickerEl2 = document.getElementById('tickerInput');
+  var loadSym = s.ticker || s.symbol || '';
+  tickerEl2.value = '';
+  if (loadSym) {
+    var loadRec = LOT_DB[loadSym];
+    tickerEl2.placeholder = loadSym + (loadRec ? ' – ' + loadRec.name : '');
+  }
   document.getElementById('spotInput').value   = s.spot;
   document.getElementById('dteInput').value    = s.dte || 30;
   // Restore symbol/lot
@@ -2071,7 +2104,9 @@ function loadPreset(name) {
 
 // ─── Fetch Price ──────────────────────────────────────────────────────────────
 function fetchPrice() {
-  var ticker = (document.getElementById('tickerInput').value || document.getElementById('symbolSel').value).trim().toUpperCase();
+  var tickerEl = document.getElementById('tickerInput');
+  // If user left the field empty, use the currently selected symbol from the dropdown
+  var ticker = (tickerEl.value.trim() || document.getElementById('symbolSel').value || '').toUpperCase();
   if (!ticker) { showToast('Enter a ticker symbol'); return; }
   showToast('Fetching\u2026');
   // Auto-match lot size and sync dropdown from LOT_DB
