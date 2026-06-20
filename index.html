@@ -163,8 +163,22 @@ label.lbl {
 }
 .ac-wrap .inp-ticker {
   width: 100%; font-size: 21px; font-weight: 600;
-  text-transform: uppercase; padding: 9px 8px;
+  text-transform: uppercase; padding: 9px 30px 9px 8px;
 }
+/* Clear (X) button — only shown via JS toggling .show */
+.ac-clear-btn {
+  position: absolute; top: 50%; right: 4px;
+  transform: translateY(-50%);
+  width: 26px; height: 26px;
+  border: none; background: var(--card2);
+  color: var(--text2); border-radius: 50%;
+  font-size: 18px; line-height: 1;
+  display: none; align-items: center; justify-content: center;
+  cursor: pointer; -webkit-appearance: none; touch-action: manipulation;
+  z-index: 5; padding: 0;
+}
+.ac-clear-btn.show { display: flex; }
+.ac-clear-btn:active { background: var(--border); }
 /* Watermark placeholder — faint italic, no caps */
 .inp-ticker::placeholder,
 .inp-ticker::-webkit-input-placeholder {
@@ -536,6 +550,7 @@ label.lbl {
       <div class="utop">
         <div class="ac-wrap">
           <input class="inp inp-ticker" type="text" id="tickerInput" placeholder="Search symbol or name…" maxlength="25" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+          <button class="ac-clear-btn" id="tickerClearBtn" type="button" aria-label="Clear" tabindex="-1">&times;</button>
           <div class="ac-drop" id="acDrop"></div>
         </div>
         <input class="inp inp-spot inp-mono" type="number" id="spotInput" placeholder="Spot ₹" step="0.05" min="0">
@@ -1232,6 +1247,7 @@ function acSelect(sym) {
   // Fill ticker input
   var inp = document.getElementById('tickerInput');
   inp.value = sym;
+  toggleTickerClearBtn();
   // Sync symbol dropdown
   var sel = document.getElementById('symbolSel');
   if (sel.querySelector('option[value="'+sym+'"]')) sel.value = sym;
@@ -1245,18 +1261,46 @@ function acSelect(sym) {
   fetchPrice();
 }
 
+// ─── Ticker clear (X) button ──────────────────────────────────────────────────
+function toggleTickerClearBtn() {
+  var inp = document.getElementById('tickerInput');
+  var btn = document.getElementById('tickerClearBtn');
+  if (!inp || !btn) return;
+  if (inp.value && inp.value.length > 0) {
+    btn.classList.add('show');
+  } else {
+    btn.classList.remove('show');
+  }
+}
+
+function clearTickerInput() {
+  var inp = document.getElementById('tickerInput');
+  if (!inp) return;
+  inp.value = '';
+  toggleTickerClearBtn();
+  acHide();
+  // Restore placeholder watermark to reflect currently selected symbol
+  var sym = document.getElementById('symbolSel').value;
+  var rec = LOT_DB[sym];
+  if (rec) inp.placeholder = sym + ' \u2013 ' + rec.name;
+  // Reset bound state tied to manual ticker text (does not affect symbolSel/currentLot,
+  // those remain as last selected — only the free-text field & dropdown are reset)
+  inp.focus();
+}
+
 function initAutocomplete() {
   var inp  = document.getElementById('tickerInput');
   var drop = document.getElementById('acDrop');
 
   inp.addEventListener('input', function() {
     var q = inp.value.trim();
+    toggleTickerClearBtn();
     if (!q) {
       acHide();
       // Restore placeholder to show currently selected symbol
       var sym = document.getElementById('symbolSel').value;
       var rec = LOT_DB[sym];
-      if (rec) inp.placeholder = sym + ' – ' + rec.name;
+      if (rec) inp.placeholder = sym + ' \u2013 ' + rec.name;
       return;
     }
     var results = acSearch(q);
@@ -1274,6 +1318,17 @@ function initAutocomplete() {
     }
     acShow(results, q);
   });
+
+  // Clear (X) button — instantly empties field, resets watermark, refocuses
+  var clearBtn = document.getElementById('tickerClearBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('touchend', function(e){ e.preventDefault(); clearTickerInput(); });
+    clearBtn.addEventListener('mousedown', function(e){ e.preventDefault(); });
+    clearBtn.addEventListener('click', function(e){ e.preventDefault(); clearTickerInput(); });
+  }
+
+  // Initial state on load
+  toggleTickerClearBtn();
 
   inp.addEventListener('keydown', function(e) {
     var items = drop.querySelectorAll('.ac-item');
@@ -1968,6 +2023,7 @@ function loadStrategy(id) {
   var tickerEl2 = document.getElementById('tickerInput');
   var loadSym = s.ticker || s.symbol || '';
   tickerEl2.value = '';
+  toggleTickerClearBtn();
   if (loadSym) {
     var loadRec = LOT_DB[loadSym];
     tickerEl2.placeholder = loadSym + (loadRec ? ' – ' + loadRec.name : '');
