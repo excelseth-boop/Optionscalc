@@ -404,6 +404,40 @@ label.lbl {
 .pos { color: var(--green); }
 .neg { color: var(--red); }
 
+/* ── POSITION BOOK ── */
+.posbook-wrap { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; width: 100%; }
+.pos-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px; width: 100%; overflow: hidden;
+}
+.pos-card.long  { border-left: 3px solid var(--green); }
+.pos-card.short { border-left: 3px solid var(--red); }
+.pos-card.flat  { border-left: 3px solid var(--text3); opacity: .6; }
+.pos-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.pos-sym { font-size: 16px; font-weight: 700; font-family: var(--mono); color: var(--text); flex-shrink: 0; }
+.pos-meta { font-size: 13px; color: var(--text2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pos-badge {
+  font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; flex-shrink: 0;
+}
+.pos-badge.long  { background: rgba(16,185,129,.2); color: var(--green); }
+.pos-badge.short { background: rgba(239,68,68,.2);  color: var(--red); }
+.pos-badge.flat  { background: rgba(100,116,139,.2); color: var(--text3); }
+.pos-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px;
+}
+.pos-stat { text-align: center; }
+.pos-stat-lbl { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
+.pos-stat-val { font-size: 16px; font-weight: 700; font-family: var(--mono); }
+.pos-trades { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(45,63,94,.5); }
+.pos-trade-row {
+  display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 13px;
+}
+.pos-trade-side { font-weight: 700; width: 36px; flex-shrink: 0; }
+.pos-trade-side.buy  { color: var(--blue); }
+.pos-trade-side.sell { color: var(--amber); }
+.pos-trade-detail { flex: 1; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pos-trade-date { font-size: 11px; color: var(--text3); flex-shrink: 0; }
+
 /* ── SAVED ── */
 .svlist { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .svcard {
@@ -631,6 +665,14 @@ label.lbl {
 
   <!-- ══ PORTFOLIO ══ -->
   <div class="tab" id="tabPortfolio">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
+      <div class="sec-title" style="margin-bottom:0;">Open Positions (Net Holdings)</div>
+      <button class="btn-sec blue" id="refreshPosBookBtn" style="flex:0 0 auto;padding:5px 12px;font-size:12px;">&#8635; Refresh</button>
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Tracks net long/short quantity per Symbol + Strike + Expiry + Type across all saved trades — like a brokerage position book. Tap any trade row to remove it.</p>
+    <div id="posBookWrap"></div>
+    <div class="divider"></div>
+
     <div class="sec-title">Combine Strategies</div>
     <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">Select saved strategies to calculate their combined P&amp;L.</p>
     <div class="pflist" id="pfList"></div>
@@ -1459,6 +1501,15 @@ function init() {
   // Autocomplete
   initAutocomplete();
 
+  // Portfolio: refresh position book button
+  var refreshBtn = document.getElementById('refreshPosBookBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', function(){
+      renderPositionBook();
+      showToast('Position book refreshed');
+    });
+  }
+
   // Build UI pieces
   buildSymbolDropdown();
   buildPresets();
@@ -1497,6 +1548,7 @@ function init() {
   }
   renderLegs();
   renderSaved();
+  renderPositionBook();
   updateMkt();
   setInterval(updateMkt, 60000);
 
@@ -1515,7 +1567,7 @@ function switchTab(tab) {
   document.getElementById('nav-'+tab.toLowerCase()).classList.add('on');
   document.getElementById('mainArea').scrollTop = 0;
   if (tab === 'Saved') renderSaved();
-  if (tab === 'Portfolio') renderPortfolio();
+  if (tab === 'Portfolio') { renderPortfolio(); renderPositionBook(); }
 }
 
 // ─── Lot size helper ──────────────────────────────────────────────────────────
@@ -1944,9 +1996,57 @@ function drawChart(id, prices, payoffs, spot, bes) {
 function saveStrategy() {
   if (legs.length === 0) { showToast('Add legs first'); return; }
   collectLegs();
+
+  // ── Duplicate-save guard ─────────────────────────────────────────────────
+  // If the exact same builder (same symbol+lotMonth) was already saved and the
+  // current leg set is a superset of a previous save (i.e. user kept adding
+  // legs and tapping Save again), offer to REPLACE that earlier save instead
+  // of creating a second overlapping entry — this is what was silently
+  // double-counting trades in the Position Book.
+  var sym  = document.getElementById('symbolSel').value;
+  var curLotMonth = parseInt(document.getElementById('lotMonthSel').value,10)||0;
+  var legsSignature = JSON.stringify(legs.map(function(l){
+    return [l.type, l.strike, l.premium, l.qty, l.entryPrice];
+  }).sort());
+
+  var existingIdx = -1;
+  for (var i = 0; i < saved.length; i++) {
+    var s2 = saved[i];
+    if (s2.symbol !== sym || (s2.lotMonth||0) !== curLotMonth) continue;
+    var sig2 = JSON.stringify((s2.legs||[]).map(function(l){
+      return [l.type, l.strike, l.premium, l.qty, l.entryPrice];
+    }).sort());
+    // Exact same leg set already saved → this is a duplicate tap, not a new trade
+    if (sig2 === legsSignature) { existingIdx = i; break; }
+    // Current legs are a strict superset of a previous save (same leading legs,
+    // plus more added) → previous save was an intermediate snapshot, replace it
+    var prevLegs = (s2.legs||[]).map(function(l){ return [l.type,l.strike,l.premium,l.qty,l.entryPrice].join('~'); });
+    var curLegs  = legs.map(function(l){ return [l.type,l.strike,l.premium,l.qty,l.entryPrice].join('~'); });
+    var isSuperset = prevLegs.length < curLegs.length && prevLegs.every(function(pl){ return curLegs.indexOf(pl) >= 0; });
+    if (isSuperset) { existingIdx = i; break; }
+  }
+
+  if (existingIdx >= 0) {
+    var ok = confirm('This looks like an update to "' + saved[existingIdx].name + '" (same/overlapping legs already saved).\n\nTap OK to REPLACE it (recommended — avoids duplicate trades in Position Book), or Cancel to save as a brand new separate trade.');
+    if (ok) {
+      saved[existingIdx].legs     = JSON.parse(JSON.stringify(legs));
+      saved[existingIdx].spot     = parseFloat(document.getElementById('spotInput').value) || 0;
+      saved[existingIdx].lot      = currentLot;
+      saved[existingIdx].lotMonth = curLotMonth;
+      saved[existingIdx].date     = new Date().toLocaleDateString('en-IN');
+      var rn = document.getElementById('stratName').value.trim();
+      if (rn) saved[existingIdx].name = rn;
+      try { localStorage.setItem('sc3_strats', JSON.stringify(saved)); } catch(e){}
+      showToast('Updated: ' + saved[existingIdx].name);
+      renderSaved();
+      renderPositionBook();
+      return;
+    }
+    // else fall through and save as new
+  }
+
   // Smart default name: Symbol + leg summary + date (never generic "Strategy N")
   var rawName = document.getElementById('stratName').value.trim();
-  var sym = document.getElementById('symbolSel').value || document.getElementById('tickerInput').value || 'STK';
   if (!rawName) {
     var legSummary = legs.slice(0,2).map(function(l){
       var c=CFG[l.type];
@@ -1958,13 +2058,12 @@ function saveStrategy() {
     rawName = sym + ' ' + legSummary + ' ' + dd + mm;
   }
   var name = rawName;
-  var sym  = document.getElementById('symbolSel').value;
   var s = {
     id: Date.now(), name: name,
     ticker:  document.getElementById('tickerInput').value || '',
     symbol:  sym,
     lot:     currentLot,
-    lotMonth: parseInt(document.getElementById('lotMonthSel').value,10)||0,
+    lotMonth: curLotMonth,
     spot:    parseFloat(document.getElementById('spotInput').value) || 0,
     legs:    JSON.parse(JSON.stringify(legs)),
     dte:     document.getElementById('dteInput').value,
@@ -1974,6 +2073,7 @@ function saveStrategy() {
   try { localStorage.setItem('sc3_strats', JSON.stringify(saved)); } catch(e){}
   showToast('Saved: ' + name);
   renderSaved();
+  renderPositionBook();
 }
 
 function renderSaved() {
@@ -2050,6 +2150,7 @@ function deleteStrategy(id) {
   try { localStorage.setItem('sc3_strats', JSON.stringify(saved)); } catch(e){}
   renderSaved();
   renderPortfolio();
+  renderPositionBook();
   showToast('Deleted');
 }
 
@@ -2059,10 +2160,240 @@ function clearAllSaved() {
   try { localStorage.setItem('sc3_strats', '[]'); } catch(e){}
   renderSaved();
   renderPortfolio();
+  renderPositionBook();
   showToast('All cleared');
 }
 
 // ─── Portfolio ────────────────────────────────────────────────────────────────
+// ─── POSITION BOOK — net open positions across all saved trades ──────────────
+// Groups every leg from every saved strategy by (symbol, strike, expiry-month, optionType)
+// and nets buy quantity vs sell quantity, exactly like a brokerage position book.
+// Example: Buy 2 ONGC 250 CE @6, then Sell 1 ONGC 250 CE @7 → Net Long 1 @ avg cost 6.
+
+function buildPositionKey(symbol, strike, lotMonth, otype) {
+  // Unique key per contract series: Symbol + Strike + Expiry-Month + Option-Type
+  return symbol + '|' + (strike != null ? strike : 'NA') + '|' + lotMonth + '|' + otype;
+}
+
+function computePositionBook() {
+  // bookMap: key -> { symbol, strike, lotMonth, otype, trades:[...], buyQty, sellQty, buyValue, sellValue }
+  var bookMap = {};
+
+  saved.forEach(function(strat) {
+    var symbol   = strat.symbol || strat.ticker || 'UNKNOWN';
+    var lotMonth = (strat.lotMonth !== undefined && strat.lotMonth !== null) ? strat.lotMonth : 0;
+    var lot      = strat.lot || 1;
+    var tradeDate = strat.date || '';
+
+    (strat.legs || []).forEach(function(leg) {
+      var cfg = CFG[leg.type];
+      if (!cfg) return;
+      // Only option legs (call/put) are tracked by strike+expiry series.
+      // Futures/Stock legs are tracked too, using strike=null (whole-symbol position).
+      var strike = cfg.hasK ? leg.strike : null;
+      var otype  = cfg.otype; // 'call' | 'put' | 'future' | 'stock'
+      var key = buildPositionKey(symbol, strike, lotMonth, otype);
+
+      if (!bookMap[key]) {
+        bookMap[key] = {
+          symbol: symbol, strike: strike, lotMonth: lotMonth, otype: otype, lot: lot,
+          trades: [], buyQty: 0, sellQty: 0, buyValue: 0, sellValue: 0
+        };
+      }
+      var entry = bookMap[key];
+      var qty   = leg.qty || 1;
+      var price = cfg.hasK ? (leg.premium || 0) : (leg.entryPrice || 0);
+      var isBuy = cfg.sign === 1; // Long = Buy, Short = Sell
+
+      entry.trades.push({
+        side: isBuy ? 'BUY' : 'SELL',
+        qty: qty, price: price, date: tradeDate, stratName: strat.name,
+        stratId: strat.id, legId: leg.id
+      });
+
+      if (isBuy) {
+        entry.buyQty   += qty;
+        entry.buyValue += qty * price;
+      } else {
+        entry.sellQty   += qty;
+        entry.sellValue += qty * price;
+      }
+    });
+  });
+
+  // Compute net position + weighted average cost for the OPEN side
+  // + realized P&L for the CLOSED (matched) portion of the position
+  var positions = Object.keys(bookMap).map(function(key) {
+    var e = bookMap[key];
+    var netQty = e.buyQty - e.sellQty; // >0 = net long, <0 = net short, 0 = flat/closed
+    var avgPrice = 0;
+    if (netQty > 0) {
+      // Net long: average cost basis from buy trades (simplified weighted avg of all buys,
+      // proportionally reduced by sells using FIFO-equivalent average-cost method)
+      avgPrice = e.buyQty > 0 ? (e.buyValue / e.buyQty) : 0;
+    } else if (netQty < 0) {
+      avgPrice = e.sellQty > 0 ? (e.sellValue / e.sellQty) : 0;
+    } else {
+      // Flat — show blended avg for reference
+      avgPrice = (e.buyQty + e.sellQty) > 0 ? ((e.buyValue + e.sellValue) / (e.buyQty + e.sellQty)) : 0;
+    }
+
+    // ── Realized P&L on the CLOSED (matched) portion ────────────────────────
+    // The matched quantity is min(buyQty, sellQty) — i.e. however many contracts
+    // were both bought AND sold get "closed out" and produce a definite cash P&L.
+    // avgBuyPrice  = e.buyValue  / e.buyQty   (average price paid per contract)
+    // avgSellPrice = e.sellValue / e.sellQty  (average price received per contract)
+    // Realized P&L = matchedQty * (avgSellPrice - avgBuyPrice) * lot
+    // (For pure-option premium trades this is the standard "round-trip" P&L:
+    //  you sold for more than you paid → profit; sold for less → loss.)
+    var matchedQty   = Math.min(e.buyQty, e.sellQty);
+    var avgBuyPrice  = e.buyQty  > 0 ? (e.buyValue  / e.buyQty)  : 0;
+    var avgSellPrice = e.sellQty > 0 ? (e.sellValue / e.sellQty) : 0;
+    var realizedPnL  = matchedQty * (avgSellPrice - avgBuyPrice) * e.lot;
+    var isFullyClosed = (netQty === 0 && matchedQty > 0);
+
+    return {
+      key: key, symbol: e.symbol, strike: e.strike, lotMonth: e.lotMonth, otype: e.otype, lot: e.lot,
+      buyQty: e.buyQty, sellQty: e.sellQty, netQty: netQty, avgPrice: avgPrice,
+      matchedQty: matchedQty, avgBuyPrice: avgBuyPrice, avgSellPrice: avgSellPrice,
+      realizedPnL: realizedPnL, isFullyClosed: isFullyClosed,
+      trades: e.trades
+    };
+  });
+
+  // Sort: open positions first (by abs netQty desc), then flat/closed
+  positions.sort(function(a, b) {
+    var aOpen = a.netQty !== 0, bOpen = b.netQty !== 0;
+    if (aOpen !== bOpen) return aOpen ? -1 : 1;
+    return Math.abs(b.netQty) - Math.abs(a.netQty);
+  });
+
+  return positions;
+}
+
+function renderPositionBook() {
+  var wrap = document.getElementById('posBookWrap');
+  if (!wrap) return;
+
+  if (saved.length === 0) {
+    wrap.innerHTML = '<div class="empty"><div class="ei">\uD83D\uDCD2</div><div class="et">No trades recorded yet</div><div class="es">Save strategies in Builder to build your position book</div></div>';
+    return;
+  }
+
+  var positions = computePositionBook();
+  if (positions.length === 0) {
+    wrap.innerHTML = '<div class="empty"><div class="ei">\uD83D\uDCD2</div><div class="et">No tracked positions</div><div class="es">Add option/future/stock legs and save</div></div>';
+    return;
+  }
+
+  var EXPIRY_LABELS = ['Jun 2026', 'Jul 2026', 'Aug 2026'];
+  var html = '';
+
+  // ── Total realized P&L across ALL positions (closed + partially closed) ──
+  var totalRealized = 0;
+  var closedCount = 0;
+  positions.forEach(function(p) {
+    totalRealized += p.realizedPnL;
+    if (p.isFullyClosed) closedCount++;
+  });
+  if (Math.abs(totalRealized) > 0.001 || closedCount > 0) {
+    var totColor = totalRealized >= 0 ? 'var(--green)' : 'var(--red)';
+    var totSign  = totalRealized >= 0 ? '+' : '\u2212';
+    html += '<div class="rc wide" style="margin-bottom:10px;padding:14px;text-align:center;">'
+      + '<div class="rc-lbl">Total Realized P&amp;L (All Closed Trades)</div>'
+      + '<div class="rc-val" style="font-size:24px;color:' + totColor + ';">' + totSign + '\u20b9' + Math.abs(totalRealized).toLocaleString('en-IN',{maximumFractionDigits:0}) + '</div>'
+      + '<div class="rc-sub">' + closedCount + ' fully closed position' + (closedCount !== 1 ? 's' : '') + '</div>'
+      + '</div>';
+  }
+
+  html += '<div class="posbook-wrap">';
+
+  positions.forEach(function(p) {
+    var statusClass = p.netQty > 0 ? 'long' : p.netQty < 0 ? 'short' : 'flat';
+    var statusLabel = p.netQty > 0 ? 'NET LONG' : p.netQty < 0 ? 'NET SHORT' : 'CLOSED / FLAT';
+    var otypeLabel  = p.otype === 'call' ? 'CE' : p.otype === 'put' ? 'PE' : p.otype === 'future' ? 'FUT' : 'EQ';
+    var strikeLabel = p.strike != null ? (' ' + p.strike + ' ' + otypeLabel) : (' ' + otypeLabel);
+    var expiryLabel = EXPIRY_LABELS[p.lotMonth] || ('Month ' + p.lotMonth);
+
+    html += '<div class="pos-card ' + statusClass + '">'
+      + '<div class="pos-hdr">'
+      + '<span class="pos-sym">' + p.symbol + strikeLabel + '</span>'
+      + '<span class="pos-meta">' + expiryLabel + '</span>'
+      + '<span class="pos-badge ' + statusClass + '">' + statusLabel + '</span>'
+      + '</div>'
+      + '<div class="pos-grid">'
+      + '<div class="pos-stat"><div class="pos-stat-lbl">Bought</div><div class="pos-stat-val" style="color:var(--blue);">' + p.buyQty + '</div></div>'
+      + '<div class="pos-stat"><div class="pos-stat-lbl">Sold</div><div class="pos-stat-val" style="color:var(--amber);">' + p.sellQty + '</div></div>'
+      + '<div class="pos-stat"><div class="pos-stat-lbl">Net Open</div><div class="pos-stat-val" style="color:' + (p.netQty > 0 ? 'var(--green)' : p.netQty < 0 ? 'var(--red)' : 'var(--text3)') + ';">' + (p.netQty > 0 ? '+' : '') + p.netQty + '</div></div>'
+      + '</div>';
+
+    if (p.netQty !== 0) {
+      html += '<div class="rc-sub" style="margin-top:8px;text-align:center;">'
+        + (p.netQty > 0 ? 'Long' : 'Short') + ' ' + Math.abs(p.netQty) + ' contract' + (Math.abs(p.netQty) !== 1 ? 's' : '')
+        + ' @ avg \u20b9' + p.avgPrice.toFixed(2) + ' &middot; Lot ' + p.lot
+        + '</div>';
+    }
+
+    // ── Realized P&L on the matched/closed portion ──────────────────────────
+    if (p.matchedQty > 0) {
+      var pnlColor = p.realizedPnL >= 0 ? 'var(--green)' : 'var(--red)';
+      var pnlSign  = p.realizedPnL >= 0 ? '+' : '\u2212';
+      var pnlAbs   = '\u20b9' + Math.abs(p.realizedPnL).toLocaleString('en-IN', {maximumFractionDigits:0});
+      if (p.isFullyClosed) {
+        // Fully closed trade — show as the headline result for this card
+        html += '<div class="rc wide" style="margin-top:10px;padding:12px;text-align:center;background:var(--card2);">'
+          + '<div class="rc-lbl">Realized P&amp;L \u00B7 Trade Closed</div>'
+          + '<div class="rc-val" style="font-size:22px;color:' + pnlColor + ';">' + pnlSign + pnlAbs + '</div>'
+          + '<div class="rc-sub">' + p.matchedQty + ' contract' + (p.matchedQty !== 1 ? 's' : '') + ' \u00B7 Bought avg \u20b9' + p.avgBuyPrice.toFixed(2) + ' \u2192 Sold avg \u20b9' + p.avgSellPrice.toFixed(2) + ' \u00B7 Lot ' + p.lot + '</div>'
+          + '</div>';
+      } else {
+        // Partially closed — open position remains, but show realized P&L on the closed part too
+        html += '<div class="rc-sub" style="margin-top:4px;text-align:center;color:' + pnlColor + ';">'
+          + 'Realized on ' + p.matchedQty + ' closed contract' + (p.matchedQty !== 1 ? 's' : '') + ': ' + pnlSign + pnlAbs
+          + '</div>';
+      }
+    }
+
+    // Trade history (collapsed-style list, tappable to remove individual trade)
+    html += '<div class="pos-trades">';
+    p.trades.forEach(function(t) {
+      html += '<div class="pos-trade-row" data-stratid="' + t.stratId + '" data-legid="' + t.legId + '" style="cursor:pointer;">'
+        + '<span class="pos-trade-side ' + (t.side === 'BUY' ? 'buy' : 'sell') + '">' + t.side + '</span>'
+        + '<span class="pos-trade-detail">' + t.qty + ' @ \u20b9' + t.price + ' \u00B7 ' + (t.stratName || '') + '</span>'
+        + '<span class="pos-trade-date">' + (t.date || '') + ' &nbsp;\u2715</span>'
+        + '</div>';
+    });
+    html += '</div>'; // pos-trades
+    html += '</div>'; // pos-card
+  });
+
+  html += '</div>';
+  wrap.innerHTML = html;
+
+  // Wire tap-to-delete on each trade row
+  wrap.querySelectorAll('.pos-trade-row').forEach(function(row) {
+    row.addEventListener('click', function() {
+      var stratId = parseInt(row.getAttribute('data-stratid'), 10);
+      var legId   = parseInt(row.getAttribute('data-legid'), 10);
+      var strat = saved.filter(function(s){ return s.id === stratId; })[0];
+      if (!strat) return;
+      var leg = (strat.legs||[]).filter(function(l){ return l.id === legId; })[0];
+      var legDesc = leg ? (CFG[leg.type].label + (CFG[leg.type].hasK ? ' ' + leg.strike : '')) : 'this trade';
+      if (!confirm('Remove "' + legDesc + '" from "' + strat.name + '"?\\n\\nThis deletes just this one leg/trade, not the whole saved strategy.')) return;
+      strat.legs = (strat.legs||[]).filter(function(l){ return l.id !== legId; });
+      // If the strategy now has no legs left, remove the whole strategy entry
+      if (strat.legs.length === 0) {
+        saved = saved.filter(function(s){ return s.id !== stratId; });
+      }
+      try { localStorage.setItem('sc3_strats', JSON.stringify(saved)); } catch(e){}
+      showToast('Trade removed');
+      renderPositionBook();
+      renderSaved();
+      renderPortfolio();
+    });
+  });
+}
+
 function renderPortfolio() {
   var el = document.getElementById('pfList');
   if (saved.length === 0) {
@@ -2237,14 +2568,60 @@ function loadPreset(name) {
   showToast('Loaded: '+pr.name);
 }
 
-// ─── Fetch Price ──────────────────────────────────────────────────────────────
+// ─── Fetch Price — Yahoo Finance only (regular quote data, not futures) ───────
+function xhrGetWithTimeout(url, timeoutMs, onSuccess, onFail) {
+  var xhr = new XMLHttpRequest();
+  var timedOut = false;
+  var timer = setTimeout(function(){
+    timedOut = true;
+    try { xhr.abort(); } catch(e){}
+    onFail('timeout');
+  }, timeoutMs);
+
+  xhr.open('GET', url, true);
+  xhr.onreadystatechange = function(){
+    if (xhr.readyState !== 4 || timedOut) return;
+    clearTimeout(timer);
+    if (xhr.status === 200 && xhr.responseText) {
+      onSuccess(xhr.responseText);
+    } else {
+      onFail('http-' + xhr.status);
+    }
+  };
+  xhr.onerror = function(){
+    if (timedOut) return;
+    clearTimeout(timer);
+    onFail('network-error');
+  };
+  try { xhr.send(); } catch(e) { clearTimeout(timer); onFail('send-error'); }
+}
+
+function extractYahooPrice(text) {
+  var data = JSON.parse(text);
+  // allorigins /get wraps payload in {contents:"..."}; /raw returns it directly
+  var parsed = (data && data.contents) ? JSON.parse(data.contents) : data;
+  var result = parsed && parsed.chart && parsed.chart.result && parsed.chart.result[0];
+  var meta = result && result.meta;
+  if (!meta) return null;
+  // regularMarketPrice = current/last traded price (regular equity quote, not futures)
+  var price = meta.regularMarketPrice;
+  if (price == null) price = meta.previousClose; // fallback if market data momentarily missing
+  return (price && price > 0) ? price : null;
+}
+
 function fetchPrice() {
   var tickerEl = document.getElementById('tickerInput');
-  // If user left the field empty, use the currently selected symbol from the dropdown
   var ticker = (tickerEl.value.trim() || document.getElementById('symbolSel').value || '').toUpperCase();
   if (!ticker) { showToast('Enter a ticker symbol'); return; }
+
+  var fetchBtn = document.getElementById('fetchBtn');
+  if (fetchBtn && fetchBtn.disabled) return; // already fetching, ignore extra taps
+  var originalLabel = fetchBtn ? fetchBtn.textContent : 'Fetch';
+  if (fetchBtn) { fetchBtn.disabled = true; fetchBtn.textContent = '\u22EF'; fetchBtn.style.opacity = '0.7'; }
+
   showToast('Fetching\u2026');
-  // Auto-match lot size and sync dropdown from LOT_DB
+
+  // Auto-match lot size and sync dropdown from LOT_DB immediately (doesn't need network)
   if (LOT_DB[ticker]) {
     var monthIdx = parseInt(document.getElementById('lotMonthSel').value,10)||0;
     currentLot = LOT_DB[ticker].lots[monthIdx] || 1;
@@ -2252,31 +2629,83 @@ function fetchPrice() {
     var sel = document.getElementById('symbolSel');
     if (sel.querySelector('option[value="'+ticker+'"]')) sel.value = ticker;
   }
-  var sym = ticker.indexOf('.') >= 0 ? ticker : ticker+'.NS';
-  var url = 'https://query1.finance.yahoo.com/v8/finance/chart/'+sym+'?interval=1m&range=1d';
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', 'https://api.allorigins.win/get?url='+encodeURIComponent(url), true);
-  xhr.onreadystatechange = function(){
-    if (xhr.readyState !== 4) return;
-    if (xhr.status === 200) {
-      try {
-        var data   = JSON.parse(xhr.responseText);
-        var parsed = JSON.parse(data.contents);
-        var price  = parsed && parsed.chart && parsed.chart.result && parsed.chart.result[0]
-                   && parsed.chart.result[0].meta && parsed.chart.result[0].meta.regularMarketPrice;
-        if (price) {
-          document.getElementById('spotInput').value = price.toFixed(2);
-          showToast(ticker+': \u20b9'+price.toFixed(2)+' | Lot: '+currentLot);
-        } else {
-          showToast('Not found \u2013 enter manually');
-        }
-      } catch(e) { showToast('Parse error \u2013 enter manually'); }
-    } else {
-      showToast('Fetch failed \u2013 enter manually');
+
+  function restoreButton() {
+    if (fetchBtn) { fetchBtn.disabled = false; fetchBtn.textContent = originalLabel; fetchBtn.style.opacity = '1'; }
+  }
+
+  // Indices use ^ prefix on Yahoo (e.g. ^NSEI for Nifty), stocks use .NS suffix
+  var INDEX_MAP = { NIFTY: '%5ENSEI', BANKNIFTY: '%5ENSEBANK', NIFTYNXT50: '%5ENSEI', FINNIFTY: '%5ENSEI', MIDCPNIFTY: '%5ENSEI', SENSEX: '%5EBSESN', BANKEX: '%5EBSESN' };
+  var yahooSym;
+  if (ticker.indexOf('.') >= 0) {
+    yahooSym = ticker;
+  } else if (INDEX_MAP[ticker]) {
+    yahooSym = INDEX_MAP[ticker];
+  } else {
+    yahooSym = ticker + '.NS';
+  }
+  // v8 chart endpoint, range=1d gives the latest regular-market quote (spot price),
+  // NOT futures/derivatives data — this is the plain cash-market last traded price.
+  var yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + yahooSym + '?interval=1d&range=1d';
+
+  // allorigins.win has a known ~50% intermittent CORS failure rate, so we try it
+  // first and fall back to a second proxy pipe — both still fetch ONLY from
+  // query1.finance.yahoo.com, no other data source is ever used.
+  var proxyUrls = [
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(yahooUrl),
+    'https://corsproxy.io/?url=' + encodeURIComponent(yahooUrl)
+  ];
+
+  var settled = false;
+  var TIMEOUT_MS = 8000;
+
+  function finishSuccess(price) {
+    if (settled) return;
+    settled = true;
+    restoreButton();
+    document.getElementById('spotInput').value = price.toFixed(2);
+    showToast(ticker + ': \u20b9' + price.toFixed(2) + ' | Lot: ' + currentLot);
+  }
+
+  function finishFail(msg) {
+    if (settled) return;
+    settled = true;
+    restoreButton();
+    showToast(msg || 'Fetch failed \u2013 enter price manually');
+  }
+
+  function tryProxy(idx) {
+    if (idx >= proxyUrls.length) {
+      finishFail('Yahoo Finance unreachable \u2013 enter price manually');
+      return;
     }
-  };
-  xhr.onerror = function(){ showToast('Network error \u2013 enter manually'); };
-  xhr.send();
+    xhrGetWithTimeout(
+      proxyUrls[idx],
+      TIMEOUT_MS,
+      function(responseText) {
+        try {
+          var price = extractYahooPrice(responseText);
+          if (price) {
+            finishSuccess(price);
+          } else {
+            tryProxy(idx + 1);
+          }
+        } catch(e) {
+          tryProxy(idx + 1);
+        }
+      },
+      function(reason) {
+        tryProxy(idx + 1);
+      }
+    );
+  }
+
+  tryProxy(0);
+
+  // Absolute safety net (covers both proxy attempts combined)
+  setTimeout(function(){
+    if (!settled) { settled = true; restoreButton(); showToast('Timed out \u2013 enter price manually'); }
+  }, TIMEOUT_MS * proxyUrls.length + 2000);
 }
 
 // ─── Export PDF ───────────────────────────────────────────────────────────────
